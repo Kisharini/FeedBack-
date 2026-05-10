@@ -9,7 +9,7 @@ export default function FeedBackLogin() {
           <img
             alt="Illustration of food sharing"
             className="absolute inset-0 w-full h-full object-cover z-0"
-            src="https://static01.nyt.com/images/2018/03/22/style/22mealshare-1/00mealshare-1-superJumbo.jpg"
+            src="https://getmainelobster.com/cdn/shop/articles/shared-food_1.webp?v=1746116012"
           />
 
           {/* Gradient Overlay */}
