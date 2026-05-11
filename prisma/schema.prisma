@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  INDIVIDUAL
+  NGO
+  VENDOR
+  RIDER
+  ADMIN
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id                        String         @id @default(cuid())
+  name                      String
+  email                     String         @unique
+  password                  String
+  role                      Role
+  approvalStatus            ApprovalStatus @default(APPROVED)
+  ngoOrganizationName       String?
+  ngoRegistrationNumber     String?
+  ngoContactPhone           String?
+  ngoAddress                String?
+  ngoDescription            String?
+  ngoSsmDocumentUrl         String?
+  ngoSsmDocumentPublicId String?
+  ngoSupportingDocUrls      String[]
+  ngoSupportingDocPublicIds String[]
+  vendorBusinessName        String?
+  vendorRegistrationNumber  String?
+  vendorPlaceAddress        String?
+  vendorContactPhone        String?
+  vendorDescription         String?
+  vendorSsmDocumentUrl      String?
+  vendorSsmDocumentPublicId String?
+  riderLicenseNumber        String?
+  riderPhoneNumber          String?
+  riderVehicleType          String?
+  riderVehicleName          String?
+  riderVehiclePlateNumber   String?
+  riderVehicleColor         String?
+  riderAddress              String?
+  riderNotes                String?
+  riderLicenseDocumentUrl   String?
+  riderLicenseDocumentPublicId String?
+  riderVehicleGrantUrl      String?
+  riderVehicleGrantPublicId String?
+  approvalNotes             String?
+  approvedAt                DateTime?
+  createdAt                 DateTime       @default(now())
+  updatedAt                 DateTime       @updatedAt
+
+  @@map("users")
+}
