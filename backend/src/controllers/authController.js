@@ -1,6 +1,9 @@
 const { StatusCodes } = require("http-status-codes");
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
+const { OAuth2Client } = require("google-auth-library");
 const prisma = require("../config/prisma");
+const env = require("../config/env");
 const { deleteCloudinaryAsset, uploadBufferToCloudinary } = require("../config/cloudinary");
 const asyncHandler = require("../utils/asyncHandler");
 const ApiError = require("../utils/apiError");
@@ -8,7 +11,8 @@ const { generateToken } = require("../utils/jwt");
 const pickUserResponse = require("../utils/pickUserResponse");
 
 const SALT_ROUNDS = 10;
-const APPROVAL_REQUIRED_ROLES = new Set(["NGO", "RIDER"]);
+const APPROVAL_REQUIRED_ROLES = new Set(["NGO", "VENDOR", "RIDER"]);
+const googleClient = env.googleClientId ? new OAuth2Client(env.googleClientId) : null;
 
 const buildAuthResponse = (user) => ({
   user: pickUserResponse(user),
@@ -220,6 +224,10 @@ const getPendingApprovalMessage = (role) => {
     return "NGO registration submitted successfully and is pending admin approval";
   }
 
+  if (role === "VENDOR") {
+    return "Vendor registration submitted successfully and is pending admin approval";
+  }
+
   if (role === "RIDER") {
     return "Rider registration submitted successfully and is pending admin approval";
   }
@@ -266,6 +274,10 @@ const getPendingLoginMessage = (role, status) => {
       return "Your NGO registration has been rejected. Please contact an administrator.";
     }
 
+    if (role === "VENDOR") {
+      return "Your vendor registration has been rejected. Please contact an administrator.";
+    }
+
     if (role === "RIDER") {
       return "Your rider registration has been rejected. Please contact an administrator.";
     }
@@ -273,6 +285,10 @@ const getPendingLoginMessage = (role, status) => {
 
   if (role === "NGO") {
     return "Your NGO registration is pending admin approval";
+  }
+
+  if (role === "VENDOR") {
+    return "Your vendor registration is pending admin approval";
   }
 
   if (role === "RIDER") {
@@ -312,6 +328,58 @@ const login = asyncHandler(async (req, res) => {
     success: true,
     message: "Login successful",
     data: result
+  });
+});
+
+const googleLogin = asyncHandler(async (req, res) => {
+  if (!env.googleClientId || !googleClient) {
+    throw new ApiError(
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      "Google sign-in is not configured on the server"
+    );
+  }
+
+  const ticket = await googleClient.verifyIdToken({
+    idToken: req.validated.body.credential,
+    audience: env.googleClientId
+  });
+  const payload = ticket.getPayload();
+
+  if (!payload?.email || !payload.email_verified) {
+    throw new ApiError(StatusCodes.UNAUTHORIZED, "Google account email could not be verified");
+  }
+
+  const email = payload.email.toLowerCase();
+  let user = await prisma.user.findUnique({
+    where: { email }
+  });
+
+  if (!user) {
+    const generatedPassword = crypto.randomBytes(32).toString("hex");
+    const hashedPassword = await bcrypt.hash(generatedPassword, SALT_ROUNDS);
+
+    user = await prisma.user.create({
+      data: {
+        name: payload.name || email.split("@")[0],
+        email,
+        password: hashedPassword,
+        role: "INDIVIDUAL",
+        approvalStatus: "APPROVED"
+      }
+    });
+  }
+
+  if (APPROVAL_REQUIRED_ROLES.has(user.role) && user.approvalStatus !== "APPROVED") {
+    throw new ApiError(
+      StatusCodes.FORBIDDEN,
+      getPendingLoginMessage(user.role, user.approvalStatus)
+    );
+  }
+
+  return res.status(StatusCodes.OK).json({
+    success: true,
+    message: "Google sign-in successful",
+    data: buildAuthResponse(user)
   });
 });
 
@@ -388,6 +456,7 @@ const updateApproval = asyncHandler(async (req, res) => {
 module.exports = {
   register,
   login,
+  googleLogin,
   getCurrentUser,
   listPendingApprovals,
   updateApproval

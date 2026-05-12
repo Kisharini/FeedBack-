@@ -105,6 +105,14 @@ const loginSchema = z.object({
   query: z.object({}).optional()
 });
 
+const googleLoginSchema = z.object({
+  body: z.object({
+    credential: z.string().trim().min(1, "Google credential is required")
+  }),
+  params: z.object({}).optional(),
+  query: z.object({}).optional()
+});
+
 const ngoApprovalSchema = z.object({
   body: z.object({
     status: z.enum(approvalStatuses.filter((status) => status !== "PENDING")),
@@ -119,6 +127,7 @@ const ngoApprovalSchema = z.object({
 module.exports = {
   registerSchema,
   loginSchema,
+  googleLoginSchema,
   ngoApprovalSchema,
   roles
 };

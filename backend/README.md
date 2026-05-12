@@ -105,7 +105,7 @@ Required file fields:
 
 - `vendorSsmDocument` (1 file, PDF/JPG/PNG/WEBP, max 5 MB)
 
-Vendor SSM documents are uploaded to Cloudinary, but vendor accounts do not require admin approval.
+Vendor SSM documents are uploaded to Cloudinary, and vendor accounts are created with `PENDING` approval status until an admin approves them.
 
 ## Rider Registration
 
