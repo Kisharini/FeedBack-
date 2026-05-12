@@ -43,9 +43,6 @@ export default function CurrentUserPage() {
       <main className="max-w-5xl mx-auto px-6 py-12">
         <div className="bg-white rounded-[2rem] shadow-lg p-8 border border-surface-container-high">
           <h1 className="font-h1 text-h1 text-on-surface mb-4">My Account</h1>
-          <p className="font-body-md text-body-md text-on-surface-variant mb-8">
-            This page is connected to `GET /api/auth/me`.
-          </p>
 
           {state.loading && (
             <p className="font-body-md text-body-md text-on-surface-variant">
