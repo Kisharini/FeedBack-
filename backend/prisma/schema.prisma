@@ -20,6 +20,14 @@ enum ApprovalStatus {
   REJECTED
 }
 
+enum ListingStatus {
+  AVAILABLE
+  CLAIMED
+  PICKED_UP
+  DELIVERED
+  EXPIRED
+}
+
 model User {
   id                        String         @id @default(cuid())
   name                      String
@@ -59,6 +67,33 @@ model User {
   approvedAt                DateTime?
   createdAt                 DateTime       @default(now())
   updatedAt                 DateTime       @updatedAt
+  listings                  Listing[]      @relation("VendorListings")
+  claimedListings           Listing[]      @relation("ClaimedListings")
 
   @@map("users")
+}
+
+model Listing {
+  id          String        @id @default(cuid())
+  title       String
+  description String
+  quantity    Int
+  expiryAt    DateTime
+  location    String
+  imageUrl    String?
+  status      ListingStatus @default(AVAILABLE)
+  vendorId    String
+  claimedById String?
+  claimedAt   DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  vendor      User          @relation("VendorListings", fields: [vendorId], references: [id])
+  claimedBy   User?         @relation("ClaimedListings", fields: [claimedById], references: [id])
+
+  @@index([status])
+  @@index([expiryAt])
+  @@index([location])
+  @@index([vendorId])
+  @@index([claimedById])
+  @@map("listings")
 }
