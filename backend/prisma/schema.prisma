@@ -28,6 +28,34 @@ enum ListingStatus {
   EXPIRED
 }
 
+enum ListingType {
+  DISCOUNTED
+  DONATION
+}
+
+enum DeliveryOption {
+  DELIVERY
+  SELF_PICKUP
+}
+
+enum PaymentMethod {
+  FPX
+  TOUCH_N_GO
+  GRABPAY
+  BOOST
+  SHOPEEPAY
+}
+
+enum OrderStatus {
+  PAYMENT_CONFIRMED
+  READY_FOR_PICKUP
+  FINDING_RIDER
+  RIDER_ASSIGNED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  COMPLETED
+}
+
 model User {
   id                        String         @id @default(cuid())
   name                      String
@@ -69,6 +97,8 @@ model User {
   updatedAt                 DateTime       @updatedAt
   listings                  Listing[]      @relation("VendorListings")
   claimedListings           Listing[]      @relation("ClaimedListings")
+  orders                    Order[]        @relation("CustomerOrders")
+  riderOrders               Order[]        @relation("AssignedRiderOrders")
 
   @@map("users")
 }
@@ -77,7 +107,9 @@ model Listing {
   id          String        @id @default(cuid())
   title       String
   description String
+  type        ListingType
   quantity    Int
+  unitPrice   Int?
   expiryAt    DateTime
   location    String
   imageUrl    String?
@@ -89,11 +121,66 @@ model Listing {
   updatedAt   DateTime      @updatedAt
   vendor      User          @relation("VendorListings", fields: [vendorId], references: [id])
   claimedBy   User?         @relation("ClaimedListings", fields: [claimedById], references: [id])
+  orderItems  OrderItem[]
 
+  @@index([type])
   @@index([status])
   @@index([expiryAt])
   @@index([location])
   @@index([vendorId])
   @@index([claimedById])
   @@map("listings")
+}
+
+model Order {
+  id                  String         @id @default(cuid())
+  customerId          String
+  riderId             String?
+  deliveryOption      DeliveryOption
+  paymentMethod       PaymentMethod
+  status              OrderStatus
+  subtotalAmount      Int
+  deliveryFeeAmount   Int
+  totalAmount         Int
+  deliveryAddress     String?
+  pickupInstructions  String?
+  riderName           String?
+  riderPhoneNumber    String?
+  riderVehicle        String?
+  riderPlateNumber    String?
+  trackingLatitude    Float?
+  trackingLongitude   Float?
+  trackingMessage     String?
+  paidAt              DateTime
+  deliveredAt         DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  customer            User           @relation("CustomerOrders", fields: [customerId], references: [id])
+  rider               User?          @relation("AssignedRiderOrders", fields: [riderId], references: [id])
+  items               OrderItem[]
+
+  @@index([customerId])
+  @@index([riderId])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id             String   @id @default(cuid())
+  orderId        String
+  listingId      String
+  titleSnapshot  String
+  listingType    ListingType
+  quantity       Int
+  unitPrice      Int
+  lineTotal      Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  order          Order    @relation(fields: [orderId], references: [id])
+  listing        Listing  @relation(fields: [listingId], references: [id])
+
+  @@index([orderId])
+  @@index([listingId])
+  @@map("order_items")
 }
