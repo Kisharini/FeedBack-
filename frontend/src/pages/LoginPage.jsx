@@ -64,6 +64,11 @@ export default function LoginPage() {
       return;
     }
 
+    if (["INDIVIDUAL", "NGO"].includes(authData.user.role)) {
+      navigateTo("/marketplace");
+      return;
+    }
+
     navigateTo("/me");
   };
 

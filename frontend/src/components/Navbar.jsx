@@ -34,6 +34,24 @@ export default function Navbar() {
         <div className="flex flex-wrap items-center justify-end gap-3">
           {currentUser ? (
             <>
+              {["INDIVIDUAL", "NGO"].includes(currentUser.role) && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => navigateTo("/marketplace")}
+                    className="rounded-full border border-[#e2e7d8] bg-white/85 px-5 py-2 font-label-md text-label-md text-[#415041] shadow-[0_8px_20px_rgba(104,97,59,0.05)] transition-all hover:border-[#b9d48f] hover:bg-[#f7fbf1]"
+                  >
+                    Marketplace
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigateTo("/marketplace/orders")}
+                    className="rounded-full border border-[#e2e7d8] bg-white/85 px-5 py-2 font-label-md text-label-md text-[#415041] shadow-[0_8px_20px_rgba(104,97,59,0.05)] transition-all hover:border-[#b9d48f] hover:bg-[#f7fbf1]"
+                  >
+                    Track Orders
+                  </button>
+                </>
+              )}
               <button
                 type="button"
                 onClick={() => navigateTo("/me")}

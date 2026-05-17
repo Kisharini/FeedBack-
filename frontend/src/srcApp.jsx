@@ -4,14 +4,32 @@ import LoginPage from "./pages/LoginPage";
 import CurrentUserPage from "./pages/CurrentUserPage";
 import PendingApprovalsPage from "./pages/PendingApprovalsPage";
 import Register from "./pages/Register";
+import MarketplacePage from "./pages/MarketplacePage";
+import ListingDetailsPage from "./pages/ListingDetailsPage";
+import CheckoutPage from "./pages/CheckoutPage";
+import OrderTrackingPage from "./pages/OrderTrackingPage";
 
-const routes = {
+const staticRoutes = {
   "/": LandingPage,
   "/login": LoginPage,
   "/register": Register,
   "/me": CurrentUserPage,
   "/admin/approvals": PendingApprovalsPage,
+  "/marketplace": MarketplacePage,
+  "/marketplace/checkout": CheckoutPage,
+  "/marketplace/orders": OrderTrackingPage,
 };
+
+const dynamicRoutes = [
+  {
+    match: /^\/marketplace\/listings\/([^/]+)$/,
+    render: (pathname) => <ListingDetailsPage listingId={pathname.split("/").pop()} />,
+  },
+  {
+    match: /^\/marketplace\/orders\/([^/]+)$/,
+    render: (pathname) => <OrderTrackingPage orderId={pathname.split("/").pop()} />,
+  },
+];
 
 export default function App() {
   const getPathname = () =>
@@ -33,7 +51,16 @@ export default function App() {
     };
   }, []);
 
-  const CurrentPage = routes[pathname] ?? LandingPage;
+  if (staticRoutes[pathname]) {
+    const CurrentPage = staticRoutes[pathname];
+    return <CurrentPage />;
+  }
 
-  return <CurrentPage />;
+  const matchedDynamicRoute = dynamicRoutes.find((route) => route.match.test(pathname));
+
+  if (matchedDynamicRoute) {
+    return matchedDynamicRoute.render(pathname);
+  }
+
+  return <LandingPage />;
 }
