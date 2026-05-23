@@ -121,16 +121,16 @@ export default function CheckoutPage() {
           <button
             type="button"
             onClick={() => navigateTo("/marketplace")}
-            className="rounded-full border border-[#dde6cf] bg-white px-4 py-2 text-sm text-[#445441] transition hover:bg-[#f4f8ee]"
+            className="rounded-full border border-[#f59b27] bg-white px-4 py-2 text-sm text-[#445441] transition hover:bg-[#fff0d1]"
           >
-            Continue browsing
+            Continue Browsing
           </button>
           <button
             type="button"
             onClick={() => navigateTo("/marketplace/orders")}
-            className="rounded-full bg-[#eef7df] px-4 py-2 text-sm font-semibold text-primary transition hover:bg-[#fff0d1]"
+           className="rounded-full border border-[#f59b27] bg-white px-4 py-2 text-sm text-[#445441] transition hover:bg-[#fff0d1]"
           >
-            Track order status
+            Track Order Status
           </button>
         </div>
 
@@ -138,11 +138,11 @@ export default function CheckoutPage() {
           <div className="rounded-[2rem] border border-[#e7eddc] bg-white p-6 shadow-level-1">
             <div className="flex flex-col gap-3 border-b border-[#edf1e6] pb-6 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="font-label-md text-label-md uppercase tracking-[0.18em] text-[#70816c]">
+                <p className="font-label-md text-label-md uppercase tracking-[0.18em] text-[#f59b27]">
                   Checkout
                 </p>
                 <h1 className="mt-2 text-h1 text-[#213722]">
-                  {currentUser?.role === "NGO" ? "Donation request checkout" : "Discounted food checkout"}
+                  {currentUser?.role === "NGO" ? "Donation request checkout" : "CHECK OUT YOUR CART"}
                 </h1>
               </div>
               <div className="rounded-full border border-[#f0d9b3] bg-[#fff6e8] px-4 py-2 text-sm text-[#8b5c16]">
@@ -232,16 +232,16 @@ export default function CheckoutPage() {
           </div>
 
           <aside className="rounded-[2rem] border border-[#dfe7d4] bg-[linear-gradient(180deg,#ffffff_0%,#f8fcf2_100%)] p-6 shadow-level-1">
-            <h2 className="text-h2 text-[#223623]">Delivery & payment</h2>
+            <h2 className="text-h2 text-[#223623]">Delivery & Payment</h2>
 
             <div className="mt-5 space-y-4">
               <div className="rounded-[1.5rem] border border-[#ebefdf] bg-white p-4">
-                <p className="text-sm font-semibold text-[#2a4128]">Delivery option</p>
+                <p className="text-sm font-semibold text-[#2a4128]">Delivery Option</p>
                 <div className="mt-4 grid gap-3">
                   {[
                     {
                       id: "SELF_PICKUP",
-                      title: "Self pickup",
+                      title: "Self Pickup",
                       desc:
                         "Pickup is free. After payment, the order status will show pickup readiness and instructions.",
                     },
@@ -286,7 +286,7 @@ export default function CheckoutPage() {
               {deliveryOption === "DELIVERY" && (
                 <div className="rounded-[1.5rem] border border-[#ebefdf] bg-white p-4">
                   <label className="block text-sm font-semibold text-[#2a4128]">
-                    Delivery address
+                    Delivery Address
                   </label>
                   <textarea
                     rows="4"
@@ -361,7 +361,7 @@ export default function CheckoutPage() {
                   disabled={submitting || !items.length}
                   className="mt-5 w-full rounded-xl bg-primary px-4 py-3 font-semibold text-white transition hover:bg-[#f59b27] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {submitting ? "Processing mock payment..." : "Pay & Create Order"}
+                  {submitting ? "Processing mock payment..." : "Pay & Confirm Order"}
                 </button>
               </div>
             </div>

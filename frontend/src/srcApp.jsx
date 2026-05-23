@@ -8,6 +8,12 @@ import MarketplacePage from "./pages/MarketplacePage";
 import ListingDetailsPage from "./pages/ListingDetailsPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import OrderTrackingPage from "./pages/OrderTrackingPage";
+import AdminControlPanel from "./pages/AdminControlPanel";
+import VendorListingDashboard from "./pages/VendorListingDashboard"; 
+
+// IMPORTED: Match the file name exactly (RiderDeliveryHistory without 'Page')
+import RiderDashboardPage from "./pages/RiderDashboardPage";
+import RiderDeliveryHistory from "./pages/RiderDeliveryHistory"; 
 
 const staticRoutes = {
   "/": LandingPage,
@@ -18,6 +24,12 @@ const staticRoutes = {
   "/marketplace": MarketplacePage,
   "/marketplace/checkout": CheckoutPage,
   "/marketplace/orders": OrderTrackingPage,
+  "/admin/dashboard": AdminControlPanel,
+  "/vendor/dashboard": VendorListingDashboard, 
+  
+  // CONNECTED: Map the path to the correctly imported component
+  "/rider/dashboard": RiderDashboardPage,
+  "/rider/history": RiderDeliveryHistory, 
 };
 
 const dynamicRoutes = [

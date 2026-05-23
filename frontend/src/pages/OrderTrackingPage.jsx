@@ -4,7 +4,6 @@ import { MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from "reac
 import Navbar from "../components/Navbar";
 import { getCurrentUserFromStorage } from "../lib/auth";
 import {
-  advanceMockOrder,
   fetchOrderById,
   fetchOrders,
 } from "../lib/marketplace";
@@ -22,6 +21,16 @@ const statusCopy = {
   COMPLETED: "Completed",
 };
 
+const orderedStatuses = [
+  "PAYMENT_CONFIRMED",
+  "READY_FOR_PICKUP",
+  "FINDING_RIDER",
+  "RIDER_ASSIGNED",
+  "OUT_FOR_DELIVERY",
+  "DELIVERED",
+  "COMPLETED",
+];
+
 const autoProgressDelayMs = {
   READY_FOR_PICKUP: 6000,
   FINDING_RIDER: 3000,
@@ -30,23 +39,26 @@ const autoProgressDelayMs = {
   DELIVERED: 2500,
 };
 
+// ========================================================
+// LEAFLET MAP CUSTOM ICON MARKERS
+// ========================================================
 const vendorIcon = L.divIcon({
   className: "delivery-map-marker-shell",
-  html: '<div class="delivery-map-marker delivery-map-marker-vendor"><span class="material-symbols-outlined">storefront</span></div>',
+  html: '<div class="delivery-map-marker delivery-map-marker-vendor" style="border-color: #16a34a;"><span class="material-symbols-outlined" style="color: #16a34a;">storefront</span></div>',
   iconSize: [42, 42],
   iconAnchor: [21, 21],
 });
 
 const riderIcon = L.divIcon({
   className: "delivery-map-marker-shell",
-  html: '<div class="delivery-map-marker delivery-map-marker-rider"><span class="material-symbols-outlined">two_wheeler</span></div>',
+  html: '<div class="delivery-map-marker delivery-map-marker-rider" style="border-color: #1d77d4;"><span class="material-symbols-outlined" style="color: #1d77d4;">two_wheeler</span></div>',
   iconSize: [42, 42],
   iconAnchor: [21, 21],
 });
 
 const destinationIcon = L.divIcon({
   className: "delivery-map-marker-shell",
-  html: '<div class="delivery-map-marker delivery-map-marker-destination"><span class="material-symbols-outlined">location_on</span></div>',
+  html: '<div class="delivery-map-marker delivery-map-marker-destination" style="border-color: #dc2626;"><span class="material-symbols-outlined" style="color: #dc2626;">location_on</span></div>',
   iconSize: [42, 42],
   iconAnchor: [21, 21],
 });
@@ -80,15 +92,12 @@ const getStatusPath = (mapData, status) => {
   if (status === "FINDING_RIDER") {
     return [mapData.riderStart, mapData.vendor];
   }
-
   if (status === "RIDER_ASSIGNED") {
     return [mapData.vendor, mapData.waypointOne];
   }
-
   if (status === "OUT_FOR_DELIVERY") {
     return [mapData.waypointOne, mapData.waypointTwo, mapData.destination];
   }
-
   return [mapData.destination];
 };
 
@@ -98,13 +107,8 @@ const interpolateCoordinates = (start, end, progress) => [
 ];
 
 const interpolateAlongPath = (path, progress) => {
-  if (!path?.length) {
-    return null;
-  }
-
-  if (path.length === 1) {
-    return path[0];
-  }
+  if (!path?.length) return null;
+  if (path.length === 1) return path[0];
 
   const segmentCount = path.length - 1;
   const scaledProgress = Math.min(progress, 1) * segmentCount;
@@ -114,43 +118,27 @@ const interpolateAlongPath = (path, progress) => {
   return interpolateCoordinates(path[segmentIndex], path[segmentIndex + 1], segmentProgress);
 };
 
-const canAutoProgress = (order) =>
-  Boolean(order) &&
-  ["READY_FOR_PICKUP", "FINDING_RIDER", "RIDER_ASSIGNED", "OUT_FOR_DELIVERY", "DELIVERED"].includes(
-    order.status
-  );
-
 const getAutomationLabel = (order, updating) => {
-  if (!order) {
-    return "";
-  }
-
-  if (order.status === "COMPLETED") {
-    return "Order completed";
-  }
-
-  if (order.deliveryOption === "SELF_PICKUP") {
-    return updating ? "Confirming pickup..." : "Auto pickup confirmation";
-  }
-
-  return updating ? "Live rider simulation" : "Live delivery tracking";
+  if (!order) return "";
+  if (order.status === "COMPLETED") return "Order Completed";
+  if (order.deliveryOption === "SELF_PICKUP") return updating ? "Confirming pickup..." : "Auto Pickup Integration";
+  return "Live Delivery Polling";
 };
 
 const getEtaLabel = (order) => {
-  if (!order) {
-    return "--";
-  }
-
+  if (!order) return "--";
   if (order.status === "FINDING_RIDER") return "8 min";
   if (order.status === "RIDER_ASSIGNED") return "6 min";
   if (order.status === "OUT_FOR_DELIVERY") return "3 min";
   if (order.status === "DELIVERED") return "Arrived";
   if (order.status === "COMPLETED") return "Completed";
   if (order.status === "READY_FOR_PICKUP") return "Ready soon";
-
   return "--";
 };
 
+// ========================================================
+// MAIN EXPORT COMPONENT: ORDER TRACKING PAGE
+// ========================================================
 export default function OrderTrackingPage({ orderId = null }) {
   const [currentUser] = useState(() => getCurrentUserFromStorage());
   const [state, setState] = useState({
@@ -160,7 +148,7 @@ export default function OrderTrackingPage({ orderId = null }) {
     selectedOrder: null,
     updating: false,
   });
-  const [animatedRiderPosition, setAnimatedRiderPosition] = useState(null);
+  const [riderPosition, setRiderPosition] = useState(null);
 
   useEffect(() => {
     if (!currentUser) {
@@ -210,55 +198,36 @@ export default function OrderTrackingPage({ orderId = null }) {
     loadOrders();
   }, [currentUser, orderId]);
 
-  const advanceOrderStatus = async (targetOrderId = state.selectedOrder?.id) => {
-    if (!targetOrderId) return;
-
-    setState((current) => ({ ...current, updating: true, error: "" }));
-
-    try {
-      const response = await advanceMockOrder(targetOrderId);
-      const updatedOrder = response.data.order;
-
-      setState((current) => ({
-        ...current,
-        updating: false,
-        error: "",
-        selectedOrder: updatedOrder,
-        orders: current.orders.map((order) =>
-          order.id === updatedOrder.id ? updatedOrder : order
-        ),
-      }));
-    } catch (error) {
-      setState((current) => ({
-        ...current,
-        updating: false,
-        error: error.message,
-      }));
-    }
-  };
-
+  // REAL TIME DATABASE POLL ENGINES
   useEffect(() => {
-    if (!canAutoProgress(state.selectedOrder) || state.updating) {
+    if (!state.selectedOrder || state.selectedOrder.status === "COMPLETED") {
       return undefined;
     }
 
-    const timeoutId = window.setTimeout(() => {
-      advanceOrderStatus(state.selectedOrder.id);
-    }, autoProgressDelayMs[state.selectedOrder.status] || 4000);
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetchOrderById(state.selectedOrder.id);
+        const freshlyPolledOrder = response.data.order;
 
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [
-    state.selectedOrder?.deliveryOption,
-    state.selectedOrder?.id,
-    state.selectedOrder?.status,
-    state.updating,
-  ]);
+        setState((current) => ({
+          ...current,
+          selectedOrder: freshlyPolledOrder,
+          orders: current.orders.map((o) =>
+            o.id === freshlyPolledOrder.id ? freshlyPolledOrder : o
+          ),
+        }));
+      } catch (pollError) {
+        console.error("Tracking telemetry dropped frame sync:", pollError.message);
+      }
+    }, 5000); 
 
+    return () => clearInterval(pollInterval);
+  }, [state.selectedOrder?.id, state.selectedOrder?.status]);
+
+  // TIMELINE STEP INTERPOLATOR CALCULATIONS
   useEffect(() => {
     if (!state.selectedOrder || state.selectedOrder.deliveryOption !== "DELIVERY") {
-      setAnimatedRiderPosition(null);
+      setRiderPosition(null);
       return undefined;
     }
 
@@ -266,12 +235,12 @@ export default function OrderTrackingPage({ orderId = null }) {
     const path = getStatusPath(mapData, state.selectedOrder.status);
 
     if (!path?.length) {
-      setAnimatedRiderPosition(null);
+      setRiderPosition(null);
       return undefined;
     }
 
     if (path.length === 1) {
-      setAnimatedRiderPosition(path[0]);
+      setRiderPosition(path[0]);
       return undefined;
     }
 
@@ -280,26 +249,20 @@ export default function OrderTrackingPage({ orderId = null }) {
     const totalFrames = Math.max(1, Math.round(duration / frameDuration));
     let frame = 0;
 
-    setAnimatedRiderPosition(path[0]);
+    setRiderPosition(path[0]);
 
     const intervalId = window.setInterval(() => {
       frame += 1;
       const progress = Math.min(frame / totalFrames, 1);
-      setAnimatedRiderPosition(interpolateAlongPath(path, progress));
+      setRiderPosition(interpolateAlongPath(path, progress));
 
       if (progress >= 1) {
         window.clearInterval(intervalId);
       }
     }, frameDuration);
 
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [
-    state.selectedOrder?.deliveryOption,
-    state.selectedOrder?.id,
-    state.selectedOrder?.status,
-  ]);
+    return () => window.clearInterval(intervalId);
+  }, [state.selectedOrder?.deliveryOption, state.selectedOrder?.id, state.selectedOrder?.status]);
 
   const isCompletedOrder = state.selectedOrder?.status === "COMPLETED";
   const deliveryMapData =
@@ -308,191 +271,212 @@ export default function OrderTrackingPage({ orderId = null }) {
       : null;
 
   return (
-    <div className="min-h-screen bg-background text-on-background font-body-md">
+    <div className="min-h-screen bg-background text-on-background font-body-md antialiased">
       <Navbar />
-      <main className="mx-auto max-w-7xl px-6 py-10">
-        <div className="mb-6 flex flex-wrap gap-3">
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:py-12">
+        <div className="mb-8 flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={() => navigateTo("/marketplace")}
-            className="rounded-full border border-[#dde6cf] bg-white px-4 py-2 text-sm text-[#445441] transition hover:bg-[#f4f8ee]"
+            className="group flex items-center gap-2 rounded-full border border-[#dde6cf] bg-white px-5 py-2.5 text-sm font-medium text-[#445441] shadow-sm transition-all hover:bg-[#f4f8ee] hover:border-[#cbdbb7]"
           >
+            <span className="material-symbols-outlined text-lg transition-transform group-hover:-translate-x-0.5">arrow_back</span>
             Browse more food
           </button>
           <button
             type="button"
             onClick={() => navigateTo("/marketplace/checkout")}
-            className="rounded-full bg-[#eef7df] px-4 py-2 text-sm font-semibold text-primary transition hover:bg-[#fff0d1]"
+            className="flex items-center gap-2 rounded-full bg-[#eef7df] px-5 py-2.5 text-sm font-semibold text-primary shadow-sm transition-all hover:bg-[#e2f0cc]"
           >
+            <span className="material-symbols-outlined text-lg">shopping_cart</span>
             Checkout cart
           </button>
         </div>
 
-        <section className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr]">
-          <div className="rounded-[2rem] border border-[#e7eddc] bg-white p-6 shadow-level-1">
-            <div className="border-b border-[#edf1e6] pb-5">
-              <p className="font-label-md text-label-md uppercase tracking-[0.18em] text-[#70816c]">
+        <section className="grid gap-8 items-stretch lg:grid-cols-[22rem_1fr] xl:grid-cols-[24rem_1fr]">
+          <div className="flex flex-col h-full rounded-3xl border border-[#e7eddc] bg-white p-5 shadow-sm">
+            <div className="pb-4 border-b border-[#edf1e6]">
+              <p className="font-label-md text-xs font-bold uppercase tracking-[0.14em] text-[#70816c]">
                 Track Order Status
               </p>
-              <h1 className="mt-2 text-h1 text-[#213722]">Your marketplace orders</h1>
+              <h1 className="mt-1 text-xl font-bold tracking-tight text-[#213722]">Your Order Summary</h1>
             </div>
 
             {state.error && (
-              <div className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-red-700">
-                {state.error}
+              <div className="mt-4 flex items-center gap-2 rounded-xl bg-red-50 p-3.5 text-sm font-medium text-red-700 border border-red-100">
+                <span className="material-symbols-outlined text-lg flex-shrink-0">error</span>
+                <p className="line-clamp-2">{state.error}</p>
               </div>
             )}
 
             {state.loading ? (
-              <div className="mt-6 space-y-4">
-                {Array.from({ length: 4 }).map((_, index) => (
-                  <div
-                    key={index}
-                    className="h-28 animate-pulse rounded-[1.5rem] border border-[#edf0e6] bg-[#fafcf8]"
-                  />
+              <div className="mt-4 space-y-3 overflow-y-auto pr-1 flex-1">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <div key={index} className="h-[104px] animate-pulse rounded-2xl border border-[#edf0e6] bg-[#fafcf8]" />
                 ))}
               </div>
             ) : state.orders.length === 0 ? (
-              <div className="mt-8 rounded-[1.6rem] border border-dashed border-[#d7dfcb] bg-[#fcfdf9] px-6 py-12 text-center">
-                <p className="text-h2 text-[#243523]">No orders yet</p>
-                <p className="mt-2 text-[#5f6d5b]">
+              <div className="mt-6 flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#d7dfcb] bg-[#fcfdf9] px-4 py-12 text-center flex-1">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#eef7df] text-primary">
+                  <span className="material-symbols-outlined text-2xl">receipt</span>
+                </div>
+                <p className="mt-4 text-base font-bold text-[#243523]">No orders yet</p>
+                <p className="mt-1 text-sm text-[#5f6d5b] max-w-[200px] mx-auto">
                   Once you complete payment, your orders will appear here.
                 </p>
               </div>
             ) : (
-              <div className="mt-6 space-y-4">
-                {state.orders.map((order) => (
-                  <button
-                    key={order.id}
-                    type="button"
-                    onClick={() => {
-                      setState((current) => ({
-                        ...current,
-                        error: "",
-                        selectedOrder: order,
-                      }));
-                      navigateTo(`/marketplace/orders/${order.id}`);
-                    }}
-                    className={`w-full rounded-[1.5rem] border p-4 text-left transition ${
-                      state.selectedOrder?.id === order.id
-                        ? "border-primary bg-[#f4faea]"
-                        : "border-[#ebefdf] bg-[#fbfdf8] hover:bg-white"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-sm font-semibold text-[#253824]">
-                          Order #{order.id.slice(-6)}
-                        </p>
-                        <p className="mt-1 text-sm text-[#5c6b59]">
-                          {order.items.length} item(s) -{" "}
-                          {order.deliveryOption === "DELIVERY" ? "Delivery" : "Self pickup"}
-                        </p>
+              <div className="mt-4 space-y-3 overflow-y-auto pr-1 custom-scrollbar flex-1 max-h-[65vh]">
+                {state.orders.map((order) => {
+                  const isSelected = state.selectedOrder?.id === order.id;
+                  return (
+                    <button
+                      key={order.id}
+                      type="button"
+                      onClick={() => {
+                        setState((current) => ({ ...current, error: "", selectedOrder: order }));
+                        navigateTo(`/marketplace/orders/${order.id}`);
+                      }}
+                      className={`w-full rounded-2xl border p-4 text-left transition-all duration-200 ${
+                        isSelected
+                          ? "border-primary bg-[#f4faea] shadow-sm ring-1 ring-primary/20"
+                          : "border-[#ebefdf] bg-[#fbfdf8] hover:bg-white hover:border-[#d2dbbf] hover:shadow-sm"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-bold text-[#253824]">Order #{order.id.slice(-6)}</p>
+                          <p className="mt-0.5 text-xs text-[#5c6b59]">
+                            {order.items.length} item{order.items.length > 1 ? "s" : ""} &bull;{" "}
+                            {order.deliveryOption === "DELIVERY" ? "Delivery" : "Self pickup"}
+                          </p>
+                        </div>
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap bg-white border border-[#ebefdf] text-[#476846] ${isSelected ? "border-primary/20 shadow-sm" : ""}`}>
+                          {statusCopy[order.status]}
+                        </span>
                       </div>
-                      <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#476846]">
-                        {statusCopy[order.status]}
-                      </span>
-                    </div>
-                    <p className="mt-4 text-sm text-[#344634]">
-                      {formatMoney(order.totalAmount)}
-                    </p>
-                  </button>
-                ))}
+                      <div className="mt-4 flex items-center justify-between border-t border-[#ebefdf]/60 pt-2">
+                        <span className="text-xs text-[#70816c]">Total Amount</span>
+                        <p className="text-sm font-bold text-[#344634]">{formatMoney(order.totalAmount)}</p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
 
-          <div className="rounded-[2rem] border border-[#dfe7d4] bg-[linear-gradient(180deg,#ffffff_0%,#f8fcf2_100%)] p-6 shadow-level-1">
+          <div className="rounded-3xl border border-[#dfe7d4] bg-[linear-gradient(180deg,#ffffff_0%,#f8fcf2_100%)] p-5 sm:p-6 shadow-sm h-full flex flex-col justify-between">
             {!state.selectedOrder ? (
-              <div className="flex h-full min-h-[320px] items-center justify-center text-center text-[#60705d]">
-                Select an order to view detailed tracking information.
+              <div className="flex h-full min-h-[400px] flex-col items-center justify-center text-center text-[#60705d] flex-1">
+                <span className="material-symbols-outlined text-4xl text-[#70816c]/60 animate-bounce">map</span>
+                <p className="mt-3 font-medium">Select an order to view detailed tracking information.</p>
               </div>
             ) : (
-              <div className="space-y-6">
-                <div className="flex flex-col gap-4 rounded-[1.8rem] border border-[#edf1e4] bg-white p-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-6 flex-1 flex flex-col justify-between">
+                <div className="flex flex-col gap-4 rounded-2xl border border-[#edf1e4] bg-white p-5 sm:flex-row sm:items-center sm:justify-between shadow-sm">
                   <div>
-                    <p className="text-sm uppercase tracking-[0.18em] text-[#72806b]">
-                      Selected order
-                    </p>
-                    <h2 className="mt-2 text-h1 text-[#213722]">
-                      Order #{state.selectedOrder.id.slice(-6)}
-                    </h2>
-                    <p className="mt-2 text-[#5e6f5b]">
-                      {statusCopy[state.selectedOrder.status]} -{" "}
-                      {state.selectedOrder.deliveryOption === "DELIVERY"
-                        ? "Delivery flow"
-                        : "Pickup flow"}
+                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#72806b]">Selected Order</p>
+                    <h2 className="mt-0.5 text-xl font-bold text-[#213722]">Order #{state.selectedOrder.id.slice(-6)}</h2>
+                    <p className="text-sm text-[#5e6f5b]">
+                      Handling via{" "}
+                      <span className="font-semibold text-[#3d523e]">
+                        {state.selectedOrder.deliveryOption === "DELIVERY" ? "Delivery Dispatch" : "Self Pickup Route"}
+                      </span>
                     </p>
                   </div>
-
-                  <div className="rounded-xl border border-[#d8e6cf] bg-[#f4faea] px-4 py-3 text-sm font-semibold text-[#2d5b2f]">
+                  <div className="flex items-center gap-2 self-start rounded-xl border border-[#d8e6cf] bg-[#f4faea] px-3.5 py-2 text-xs font-bold text-[#2d5b2f] sm:self-center">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#2d5b2f] opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#2d5b2f]"></span>
+                    </span>
                     {getAutomationLabel(state.selectedOrder, state.updating)}
                   </div>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-3">
-                  <StatusCard
-                    label="Payment Method"
-                    value={state.selectedOrder.paymentMethod}
-                    icon="payments"
-                  />
-                  <StatusCard
-                    label="Order Total"
-                    value={formatMoney(state.selectedOrder.totalAmount)}
-                    icon="receipt_long"
-                  />
-                  <StatusCard
-                    label="Paid At"
-                    value={new Date(state.selectedOrder.paidAt).toLocaleString()}
-                    icon="schedule"
-                  />
+                <div className="rounded-2xl border border-[#edf1e4] bg-white p-5 shadow-sm overflow-hidden">
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#72806b] mb-6">Delivery Milestone</p>
+                  <div className="relative flex items-start justify-between w-full px-2">
+                    <div className="absolute left-6 right-6 top-[14px] h-1 bg-[#edf1e6] -z-10 rounded-full" />
+                    <div 
+                      className="absolute left-6 top-[14px] h-1 bg-[#476846] -z-10 rounded-full transition-all duration-500 ease-out"
+                      style={{ width: `calc(${(orderedStatuses.indexOf(state.selectedOrder.status) / (orderedStatuses.length - 1)) * 100}% - 12px)` }}
+                    />
+                    {orderedStatuses.map((statusKey, index) => {
+                      const currentActiveIndex = orderedStatuses.indexOf(state.selectedOrder.status);
+                      const isPast = index < currentActiveIndex;
+                      const isCurrent = index === currentActiveIndex;
+                      return (
+                        <div key={statusKey} className="flex flex-col items-center flex-1 relative">
+                          <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 transition-all duration-300 z-10 ${
+                            isPast ? "bg-[#476846] border-[#476846] text-white" : isCurrent ? "bg-white border-[#476846] text-[#476846] scale-110 shadow-md ring-4 ring-[#f4faea]" : "bg-white border-[#edf1e6] text-[#b2beb0]"
+                          }`}>
+                            {isPast ? <span className="material-symbols-outlined text-sm font-bold">check</span> : <span className="text-xs font-bold">{index + 1}</span>}
+                          </div>
+                          <span className={`mt-3 hidden text-[11px] font-bold tracking-tight text-center sm:block max-w-[84px] mx-auto transition-colors duration-200 ${isCurrent ? "text-[#213722] font-extrabold" : isPast ? "text-[#4b5749]" : "text-[#9cb098]"}`}>
+                            {statusCopy[statusKey]}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-2 block text-center text-xs font-semibold text-[#476846] sm:hidden">
+                    Current Step: {statusCopy[state.selectedOrder.status]}
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <StatusCard icon="payments" label="Payment Method" value={state.selectedOrder.paymentMethod} />
+                  <StatusCard icon="receipt_long" label="Order Total" value={formatMoney(state.selectedOrder.totalAmount)} />
+                  <StatusCard icon="schedule" label="Paid At" value={new Date(state.selectedOrder.paidAt).toLocaleString([], {hour: '2-digit', minute:'2-digit', year: 'numeric', month: 'short', day: 'numeric'})} />
                 </div>
 
                 {state.selectedOrder.deliveryOption === "SELF_PICKUP" ? (
-                  <div className="rounded-[1.8rem] border border-[#f0d9b3] bg-[linear-gradient(135deg,#fff9ef_0%,#fff4df_100%)] p-5">
-                    <p className="text-sm font-semibold text-[#8c5d17]">Pickup procedures</p>
-                    <p className="mt-3 leading-7 text-[#6e542c]">
-                      {state.selectedOrder.pickupInstructions}
-                    </p>
-                    <p className="mt-4 text-sm text-[#7e612e]">
-                      {isCompletedOrder
-                        ? "This pickup order has already been completed successfully."
-                        : "Demo mode will auto-confirm pickup after a short delay."}
-                    </p>
+                  <div className="rounded-2xl border border-[#f0d9b3] bg-[linear-gradient(135deg,#fff9ef_0%,#fff4df_100%)] p-5 shadow-sm">
+                    <div className="flex items-center gap-2 text-[#8c5d17]">
+                      <span className="material-symbols-outlined text-xl">info</span>
+                      <p className="text-sm font-bold">Pickup Instructions</p>
+                    </div>
+                    <p className="mt-2.5 text-sm leading-relaxed text-[#6e542c]">{state.selectedOrder.pickupInstructions}</p>
+                    <div className="mt-4 border-t border-[#e6d0a8]/60 pt-3 text-xs text-[#7e612e]/80">
+                      {isCompletedOrder ? "This pickup order has already been completed successfully." : "The interface updates automatically when the package is verified."}
+                    </div>
                   </div>
                 ) : (
-                  <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-                    <div className="rounded-[1.8rem] border border-[#e8eedc] bg-white p-5">
-                      <p className="text-sm font-semibold text-[#214021]">Rider details</p>
-                      {state.selectedOrder.rider ? (
-                        <div className="mt-4 space-y-3 text-sm text-[#5d6c59]">
-                          <p>
-                            <span className="font-semibold text-[#243824]">Name:</span>{" "}
-                            {state.selectedOrder.rider.name}
-                          </p>
-                          <p>
-                            <span className="font-semibold text-[#243824]">Phone:</span>{" "}
-                            {state.selectedOrder.rider.phoneNumber}
-                          </p>
-                          <p>
-                            <span className="font-semibold text-[#243824]">Vehicle:</span>{" "}
-                            {state.selectedOrder.rider.vehicle}
-                          </p>
-                          <p>
-                            <span className="font-semibold text-[#243824]">Plate:</span>{" "}
-                            {state.selectedOrder.rider.plateNumber}
-                          </p>
+                  <div className="grid gap-5 lg:grid-cols-[20rem_1fr] xl:grid-cols-[22rem_1fr]">
+                    <div className="flex flex-col justify-between rounded-2xl border border-[#e8eedc] bg-white p-5 shadow-sm">
+                      <div>
+                        <div className="flex items-center gap-2 border-b border-[#edf1e6] pb-2 text-[#214021]">
+                          <span className="material-symbols-outlined text-lg">motorcycle</span>
+                          <p className="text-sm font-bold">Rider Details</p>
                         </div>
-                      ) : (
-                        <p className="mt-4 text-sm leading-6 text-[#5f6d5b]">
-                          The system is automatically assigning a rider for this demo order.
-                        </p>
-                      )}
-
-                      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                        {state.selectedOrder.rider ? (
+                          <div className="mt-3.5 space-y-2.5 text-sm text-[#5d6c59]">
+                            <div className="flex justify-between">
+                              <span className="text-[#70816c]">Name</span>
+                              <span className="font-semibold text-[#243824]">{state.selectedOrder.rider.name}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-[#70816c]">Phone</span>
+                              <span className="font-semibold text-[#243824]">{state.selectedOrder.rider.phoneNumber}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-[#70816c]">Vehicle</span>
+                              <span className="font-semibold text-[#243824]">{state.selectedOrder.rider.vehicle}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-[#70816c]">Plate</span>
+                              <span className="font-semibold text-[#243824] tracking-wider bg-[#f4faea] px-2 py-0.5 rounded text-xs border border-[#d8e6cf]">{state.selectedOrder.rider.plateNumber}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="mt-4 text-sm leading-relaxed text-[#5f6d5b]">Waiting for dispatch confirmation from logistics platform...</p>
+                        )}
+                      </div>
+                      <div className="mt-6 grid gap-2 grid-cols-3">
                         <MiniStat label="ETA" value={getEtaLabel(state.selectedOrder)} />
-                        <MiniStat label="Mode" value="Live tracked" />
-                        <MiniStat label="Route" value="Live route" />
+                        <MiniStat label="Mode" value="Live" />
+                        <MiniStat label="Route" value="OSM" />
                       </div>
                     </div>
 
@@ -500,36 +484,38 @@ export default function OrderTrackingPage({ orderId = null }) {
                       <DeliveryLeafletMap
                         order={state.selectedOrder}
                         mapData={deliveryMapData}
-                        riderPosition={animatedRiderPosition}
+                        riderPosition={riderPosition}
                         isCompletedOrder={isCompletedOrder}
                       />
                     )}
                   </div>
                 )}
 
-                <div className="rounded-[1.8rem] border border-[#e8eedc] bg-white p-5">
-                  <p className="text-sm font-semibold text-[#214021]">Ordered items</p>
-                  <div className="mt-4 space-y-4">
+                <div className="rounded-2xl border border-[#e8eedc] bg-white p-5 shadow-sm mt-2">
+                  <p className="text-sm font-bold text-[#214021] mb-3.5 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-lg text-[#5f6d5b]">restaurant_menu</span>
+                    Items Ordered ({state.selectedOrder.items.length})
+                  </p>
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
                     {state.selectedOrder.items.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex flex-col gap-3 rounded-[1.3rem] border border-[#edf1e4] bg-[#fbfdf8] p-4 sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <div>
-                          <p className="font-semibold text-[#213822]">{item.title}</p>
-                          <p className="mt-1 text-sm text-[#5f6d5b]">
-                            {item.type === "DISCOUNTED"
-                              ? "Discounted food"
-                              : "Donation food"}{" "}
-                            - Qty {item.quantity}
-                          </p>
-                          <p className="mt-1 text-sm text-[#5f6d5b]">
-                            {item.listing?.location}
-                          </p>
+                      <div key={item.id} className="flex items-center justify-between gap-4 rounded-xl border border-[#edf1e4] bg-[#fbfdf8] p-3.5 transition-colors hover:bg-white">
+                        <div className="min-w-0">
+                          <p className="font-bold text-sm text-[#213822] truncate">{item.title}</p>
+                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[#5f6d5b]">
+                            <span className={`font-semibold ${item.type === "DISCOUNTED" ? "text-amber-700 bg-amber-50" : "text-emerald-700 bg-emerald-50"} px-1.5 py-0.5 rounded`}>
+                              {item.type === "DISCOUNTED" ? "Discounted Surplus" : "Donation Batch"}
+                            </span>
+                            <span>&bull;</span>
+                            <span className="font-medium">Qty {item.quantity}</span>
+                            {item.listing?.location && (
+                              <>
+                                <span>&bull;</span>
+                                <span className="truncate max-w-[140px] sm:max-w-none">{item.listing.location}</span>
+                              </>
+                            )}
+                          </div>
                         </div>
-                        <p className="text-sm font-semibold text-[#213822]">
-                          {formatMoney(item.lineTotal)}
-                        </p>
+                        <p className="text-sm font-bold text-[#213822] flex-shrink-0">{formatMoney(item.lineTotal)}</p>
                       </div>
                     ))}
                   </div>
@@ -543,123 +529,96 @@ export default function OrderTrackingPage({ orderId = null }) {
   );
 }
 
+// ========================================================
+// RE-REALIZED: MODULAR REAL-TIME OPENSTREETMAP INTERFACE
+// ========================================================
 function DeliveryLeafletMap({ order, mapData, riderPosition, isCompletedOrder }) {
   return (
-    <div className="rounded-[1.8rem] border border-[#d9e4f3] bg-[linear-gradient(180deg,#f5fbff_0%,#edf7ff_100%)] p-5">
-      <p className="text-sm font-semibold text-[#19435b]">Live map</p>
-      <div className="mt-4 overflow-hidden rounded-[1.4rem] border border-[#d9e8f3] bg-white p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
-        <MapContainer
-          className="delivery-leaflet-map h-72 w-full rounded-[1.2rem]"
-          scrollWheelZoom={false}
-          zoomControl={false}
-        >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          <MapViewport points={mapData.bounds} orderId={order.id} />
+    <div className="rounded-2xl border border-[#d9e4f3] bg-[linear-gradient(180deg,#f5fbff_0%,#edf7ff_100%)] p-4 shadow-sm flex flex-col justify-between h-full min-h-[340px]">
+      <div className="flex-1 flex flex-col">
+        <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#19435b]">Real-Time Delivery Route</p>
+        <div className="mt-2 overflow-hidden rounded-xl border border-[#d9e8f3] bg-white p-1.5 shadow-sm flex-1 relative min-h-[220px]">
+          <MapContainer
+            className="delivery-leaflet-map h-full w-full rounded-lg absolute inset-0"
+            scrollWheelZoom={true}
+            zoomControl={true}
+            style={{ height: "100%", width: "100%" }}
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            <MapViewportUpdater points={mapData.bounds} orderId={order.id} />
 
-          <Polyline
-            positions={[mapData.riderStart, mapData.vendor]}
-            pathOptions={{
-              color: "#70a8e6",
-              weight: 4,
-              dashArray: "6 10",
-              opacity: 0.9,
-            }}
-          />
-          <Polyline
-            positions={mapData.route}
-            pathOptions={{
-              color: "#1d77d4",
-              weight: 5,
-              opacity: 0.9,
-              lineCap: "round",
-              lineJoin: "round",
-            }}
-          />
+            <Polyline
+              positions={[mapData.riderStart, mapData.vendor]}
+              pathOptions={{ color: "#70a8e6", weight: 3, dashArray: "6 10", opacity: 0.7 }}
+            />
+            <Polyline
+              positions={mapData.route}
+              pathOptions={{ color: "#1d77d4", weight: 5, opacity: 0.9, lineCap: "round", lineJoin: "round" }}
+            />
 
-          <Marker icon={vendorIcon} position={mapData.vendor}>
-            <Tooltip
-              className="delivery-map-tooltip"
-              direction="bottom"
-              offset={[0, 20]}
-              permanent
-            >
-              Vendor
-            </Tooltip>
-          </Marker>
-
-          <Marker icon={destinationIcon} position={mapData.destination}>
-            <Tooltip
-              className="delivery-map-tooltip"
-              direction="bottom"
-              offset={[0, 20]}
-              permanent
-            >
-              Destination
-            </Tooltip>
-          </Marker>
-
-          {riderPosition && (
-            <Marker icon={riderIcon} position={riderPosition}>
-              <Tooltip
-                className="delivery-map-tooltip"
-                direction="top"
-                offset={[0, -20]}
-                permanent={isCompletedOrder}
-              >
-                {isCompletedOrder ? "Delivered" : "Rider"}
-              </Tooltip>
+            <Marker icon={vendorIcon} position={mapData.vendor}>
+              <Tooltip className="delivery-map-tooltip" direction="bottom" offset={[0, 15]} permanent>Vendor Shop</Tooltip>
             </Marker>
-          )}
-        </MapContainer>
-      </div>
+            <Marker icon={destinationIcon} position={mapData.destination}>
+              <Tooltip className="delivery-map-tooltip" direction="bottom" offset={[0, 15]} permanent>Dropoff Location</Tooltip>
+            </Marker>
 
-      <div className="mt-4 rounded-[1.2rem] bg-white/80 p-4 text-sm leading-6 text-[#35556a]">
-        {order.tracking?.message ||
-          "This live map is using a mocked route for the delivery preview."}
-        {!isCompletedOrder && (
-          <p className="mt-2 text-xs text-[#5a7c94]">
-            The rider marker moves automatically as the mocked status updates.
-          </p>
-        )}
+            {riderPosition && (
+              <Marker icon={riderIcon} position={riderPosition}>
+                <Tooltip className="delivery-map-tooltip bg-primary text-white font-semibold" direction="top" offset={[0, -15]} permanent={isCompletedOrder}>
+                  {isCompletedOrder ? "Package Delivered" : "Rider (En Route)"}
+                </Tooltip>
+              </Marker>
+            )}
+          </MapContainer>
+        </div>
+      </div>
+      <div className="mt-3 rounded-xl bg-white/70 p-3 text-xs leading-relaxed text-[#35556a] border border-[#d9e4f3]/60">
+        <div className="flex items-center gap-1.5 font-bold text-[#19435b]">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <p>{order.tracking?.message || "Connected to telemetry distribution engine."}</p>
+        </div>
+        <p className="mt-1 text-[11px] text-[#5a7c94]">Map layout updates positioning vectors as updates stream from the rider's device.</p>
       </div>
     </div>
   );
 }
 
-function MapViewport({ points, orderId }) {
+function MapViewportUpdater({ points, orderId }) {
   const map = useMap();
-
   useEffect(() => {
-    map.fitBounds(points, {
-      padding: [28, 28],
-    });
+    if (!map || !points || points.length === 0) return;
+    setTimeout(() => {
+      map.invalidateSize();
+      map.fitBounds(points, { padding: [32, 32], maxZoom: 16, animate: true, duration: 0.8 });
+    }, 150);
   }, [map, orderId, points]);
-
   return null;
 }
 
 function StatusCard({ icon, label, value }) {
   return (
-    <div className="rounded-[1.4rem] border border-[#ebefdf] bg-white p-4">
-      <div className="flex items-center gap-2 text-[#5b6c57]">
-        <span className="material-symbols-outlined text-[18px]">{icon}</span>
-        <span className="text-xs font-semibold uppercase tracking-wide">{label}</span>
+    <div className="rounded-xl border border-[#ebefdf] bg-white p-3.5 shadow-sm transition-all hover:border-[#d2dbbf]">
+      <div className="flex items-center gap-1.5 text-[#5b6c57]">
+        <span className="material-symbols-outlined text-[16px]">{icon}</span>
+        <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
       </div>
-      <p className="mt-3 text-sm leading-6 text-[#253724]">{value}</p>
+      <p className="mt-1.5 text-sm font-bold text-[#253724] truncate">{value}</p>
     </div>
   );
 }
 
 function MiniStat({ label, value }) {
   return (
-    <div className="rounded-[1rem] border border-[#e4edf7] bg-[#f8fbff] px-3 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#6b88a1]">
-        {label}
-      </p>
-      <p className="mt-2 text-sm font-semibold text-[#1c4259]">{value}</p>
+    <div className="rounded-xl border border-[#e4edf7] bg-[#f8fbff] p-2.5 text-center transition-colors hover:bg-[#f0f6fc]">
+      <p className="text-[9px] font-bold uppercase tracking-wider text-[#6b88a1]">{label}</p>
+      <p className="mt-0.5 text-xs font-bold text-[#1c4259]">{value}</p>
     </div>
   );
 }

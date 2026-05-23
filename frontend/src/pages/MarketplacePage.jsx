@@ -10,7 +10,7 @@ const audienceCopy = {
     title: "Discounted Food Marketplace",
     subtitle:
       "Browse discounted surplus meals from vendors, add them to cart, and check out with pickup or delivery.",
-    badge: "Individual access",
+    badge: "Individual Access",
   },
   NGO: {
     title: "Donation Food Marketplace",
@@ -117,8 +117,13 @@ export default function MarketplacePage() {
         <section className="overflow-hidden rounded-[2.5rem] border border-[#e6ebda] bg-[linear-gradient(135deg,#fff9ef_0%,#f5fbe9_48%,#eef7ff_100%)] p-8 shadow-level-2">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
-              <div className="mb-3 inline-flex rounded-full border border-[#f1d8b8] bg-white/80 px-4 py-2 font-label-md text-label-md text-primary">
-                {copy.badge}
+              <div className="mb-3 inline-flex items-center gap-1.5 font-sans text-3xl font-bold">
+                <span className="text-black">Hello</span>
+                <span className="text-[#F2994A]">
+                  {currentUser?.role === "NGO"
+                    ? (currentUser?.businessName || currentUser?.name?.split(" ")[0])
+                    : currentUser?.name?.split(" ")[0] || "User"} !
+                </span>
               </div>
               <h1 className="font-display text-[clamp(2.2rem,4vw,3.4rem)] leading-tight text-[#1d3720]">
                 {copy.title}
@@ -128,22 +133,36 @@ export default function MarketplacePage() {
               </p>
             </div>
 
+            {/* Glowing Buttons Row with Dashboard Icons */}
             <div className="grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
                 onClick={() => navigateTo("/marketplace/checkout")}
-                className="rounded-[1.4rem] border border-[#e6ebda] bg-white px-5 py-4 text-left shadow-[0_14px_24px_rgba(95,104,69,0.08)] transition-transform hover:-translate-y-0.5"
+                className="rounded-[1.4rem] border border-[#f2994a]/40 bg-white px-5 py-4 text-left shadow-[0_0_15px_rgba(242,153,74,0.12)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_25px_rgba(242,153,74,0.3)] hover:border-[#f2994a]/80"
               >
-                <p className="text-sm font-semibold text-[#203322]">Checkout Cart</p>
-                <p className="mt-1 text-sm text-[#5a6752]">{cartCount} item(s) ready</p>
+                <div className="flex items-center gap-2 text-[#203322]">
+                  <span className="material-symbols-outlined text-[20px] text-[#f2994a]">
+                    shopping_cart
+                  </span>
+                  <p className="text-sm font-semibold">Checkout Cart</p>
+                </div>
+                <p className="mt-1 pl-7 text-sm text-[#5a6752]">{cartCount} item(s) ready</p>
               </button>
+
               <button
                 type="button"
                 onClick={() => navigateTo("/marketplace/orders")}
-                className="rounded-[1.4rem] border border-[#d7e4f5] bg-white px-5 py-4 text-left shadow-[0_14px_24px_rgba(76,107,132,0.08)] transition-transform hover:-translate-y-0.5"
+                className="rounded-[1.4rem] border border-[#4c6b84]/40 bg-white px-5 py-4 text-left shadow-[0_0_15px_rgba(76,107,132,0.12)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_25px_rgba(76,107,132,0.3)] hover:border-[#4c6b84]/80"
               >
-                <p className="text-sm font-semibold text-[#203322]">Track Order Status</p>
-                <p className="mt-1 text-sm text-[#5a6752]">Monitor payment, pickup, and rider updates</p>
+                <div className="flex items-center gap-2 text-[#203322]">
+                  <span className="material-symbols-outlined text-[20px] text-[#4c6b84]">
+                    local_shipping
+                  </span>
+                  <p className="text-sm font-semibold">Track Order Status</p>
+                </div>
+                <p className="mt-1 pl-7 text-sm text-[#5a6752]">
+                  Monitor payment, pickup, and rider updates
+                </p>
               </button>
             </div>
           </div>
@@ -233,8 +252,15 @@ export default function MarketplacePage() {
                       </div>
                     </div>
                   )}
-                  <div className="absolute left-4 top-4 rounded-full bg-white/88 px-3 py-1 text-xs font-semibold tracking-wide text-[#355528]">
-                    {listing.type === "DISCOUNTED" ? "Discounted" : "Donation"}
+                  {/* Updated badge colors condition: turns orange when the item is discounted */}
+                  <div
+                    className={`absolute left-4 top-4 rounded-full px-3 py-1 text-xs font-bold tracking-wide shadow-sm ${
+                      listing.type === "DISCOUNTED"
+                        ? "bg-white/95 text-[#F2994A] border border-[#f2994a]/20"
+                        : "bg-white/88 text-[#355528]"
+                    }`}
+                  >
+                    {listing.type === "DISCOUNTED" ? "50% Discount" : "Donation"}
                   </div>
                 </div>
 
@@ -246,11 +272,28 @@ export default function MarketplacePage() {
                         {listing.vendor.businessName || listing.vendor.name}
                       </p>
                     </div>
-                    <div className="rounded-2xl bg-[#f4fae8] px-3 py-2 text-right">
-                      <p className="text-xs uppercase tracking-wide text-[#64805d]">Price</p>
-                      <p className="text-sm font-semibold text-[#244125]">
-                        {listing.type === "DISCOUNTED" ? money(listing.unitPrice) : "Free"}
+                    
+                    {/* Enhanced Price UI containing both original crossed-out price and buying price */}
+                    <div className="rounded-2xl bg-[#f4fae8] px-3.5 py-2 text-right min-w-[95px]">
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-[#64805d]">
+                        {listing.type === "DISCOUNTED" ? "Offer Price" : "Price"}
                       </p>
+                      {listing.type === "DISCOUNTED" ? (
+                        <div className="flex flex-col items-end mt-0.5">
+                          {listing.originalPrice && (
+                            <span className="text-[11px] font-medium text-[#99a896] line-through decoration-red-400/70 leading-none mb-0.5">
+                              {money(listing.originalPrice)}
+                            </span>
+                          )}
+                          <span className="text-sm font-extrabold text-[#F2994A] leading-tight">
+                            {money(listing.unitPrice)}
+                          </span>
+                        </div>
+                      ) : (
+                        <p className="mt-0.5 text-sm font-bold text-[#244125]">
+                          Free
+                        </p>
+                      )}
                     </div>
                   </div>
 
