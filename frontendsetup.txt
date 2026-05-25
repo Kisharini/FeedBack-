@@ -1,0 +1,107 @@
+FRONTEND SETUP GUIDE FOR BEGINNERS
+
+This guide explains how to set up the frontend from zero.
+
+1. Install the required software
+- Install Node.js LTS from `https://nodejs.org/`
+- Install VS Code if you want an editor
+
+2. Check Node.js is installed
+- Open a terminal and run:
+```powershell
+node -v
+npm -v
+```
+
+3. Open the project
+- Open the folder `Feedback_1`
+- Open a terminal inside the project
+
+4. Go to the frontend folder
+```powershell
+cd frontend
+```
+
+5. Install frontend packages
+```powershell
+npm install
+```
+
+6. Create the frontend environment file
+- Inside `frontend`, create a file named `.env`
+-Ive sent the file in whatsapp
+- Copy this into it:
+```env
+VITE_API_BASE_URL=http://localhost:5000/api
+VITE_GOOGLE_CLIENT_ID=your-google-client-id
+```
+
+7. Edit the frontend `.env` values
+- Keep `VITE_API_BASE_URL` as `http://localhost:5000/api` if your backend runs locally on port 5000
+- Put your Google client ID into `VITE_GOOGLE_CLIENT_ID` if you want Google sign-in
+
+8. Make sure the backend is running
+- The frontend depends on the backend API
+- Backend local API URL should be:
+- `http://localhost:5000/api`
+
+9. Start the frontend
+```powershell
+npm run dev
+```
+
+10. Open the frontend in your browser
+- Vite usually gives a local URL like:
+- `http://localhost:5173`
+
+11. Main frontend pages
+- Landing page
+- Register page
+- Login page
+- My account page
+- Admin approvals page
+
+12. Frontend features
+- React + Vite
+- Login and registration
+- Google sign-in
+- Role-based pages
+- Admin approval UI
+
+13. Useful frontend commands
+```powershell
+npm install
+npm run dev
+npm run build
+npm run preview
+npm run lint
+```
+
+14. Build for production
+```powershell
+npm run build
+```
+
+15. Preview production build
+```powershell
+npm run preview
+```
+
+16. If something goes wrong
+- Make sure `npm install` finished
+- Make sure the backend is running
+- Check `VITE_API_BASE_URL`
+- Restart the frontend after editing `.env`
+- Check browser console for errors
+
+17. Full beginner flow
+1. Install Node.js
+2. Open the project
+3. Go to `frontend`
+4. Run `npm install`
+5. Create `.env`
+6. Start the backend
+7. Run `npm run dev`
+8. Open the local frontend URL in browser
+
+When these steps work, the frontend setup is complete.
