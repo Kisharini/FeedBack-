@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom"
 
 // ─── Theme tokens ─────────────────────────────────────────────────────────────
 const C = {
@@ -264,6 +265,7 @@ export default function FeedbackPro() {
   const [form, setForm] = useState({ name: "", category: "Bakery", qty: "", date: "", time: "", instructions: "" });
   const [deletingId, setDeletingId] = useState(null);
   const [relist, setRelist] = useState(null);
+  const navigate = useNavigate();
 
   const activeCount = listings.filter(l => !l.archived).length;
 
@@ -354,24 +356,27 @@ export default function FeedbackPro() {
       <nav style={{
         background: C.surface, boxShadow: "0 1px 3px rgba(70,132,50,0.1)",
         display: "flex", justifyContent: "space-between", alignItems: "center",
-        padding: "0 24px 0 280px", height: 64, position: "sticky", top: 0, zIndex: 50,
+        padding: "0 24px", paddingLeft: 10, height: 64, position: "sticky", top: 0, zIndex: 50,
       }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <span style={{ fontSize: 22, fontWeight: 700, color: C.primary }}>FeedBack</span>
+      </div>
         <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
           <div style={{ display: "flex", gap: 32 }}>
             {navLink("Listings", true)}
             {navLink("Deliveries", false)}
             {navLink("Analytics", false)}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
             {["recycling", "notifications"].map(icon => (
               <button key={icon} style={{ background: "none", border: "none", cursor: "pointer", padding: 8, borderRadius: "50%", color: C.onSurfaceVariant }}>
                 <span className="material-symbols-outlined">{icon}</span>
               </button>
             ))}
-            <div style={{ width: 40, height: 40, borderRadius: "50%", overflow: "hidden", border: `2px solid ${C.secondaryContainer}` }}>
-              <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDdTSJmUIKcmGP_Jidwkyb9mSKYR_sXi4H_B7Jr3L1JGmKsaWKpvr3Px4G2_CDVOzqZSm6gyMRoGLN6R9tJKnjbqZVKZrUJY2907VjE_IVuFepr9FHW3SnhfPGjPwq2hMvw-vhtmik7QKCeXXjniNOOWhaGJdvcG36fwxhRG83jdTi0c60gtw2kHUn_oQLmvlKCfTClvU4S7t5pir8PyP0dOVhHzfQISkXFotYEXs4MboESJzQ67B4WwQPD6Y04REQMUx68lIzZqi_e" alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            </div>
+            <button onClick={() => window.location.href = "/login"} title="Log out" style={{width: 40, height: 40, borderRadius: "50%", overflow: "hidden", border: `2px solid ${C.secondaryContainer}`, padding: 0, background: "none", cursor: "pointer", display: "block"}}>
+            <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDdTSJmUIKcmGP_Jidwkyb9mSKYR_sXi4H_B7Jr3L1JGmKsaWKpvr3Px4G2_CDVOzqZSm6gyMRoGLN6R9tJKnjbqZVKZrUJY2907VjE_IVuFepr9FHW3SnhfPGjPwq2hMvw-vhtmik7QKCeXXjniNOOWhaGJdvcG36fwxhRG83jdTi0c60gtw2kHUn_oQLmvlKCfTClvU4S7t5pir8PyP0dOVhHzfQISkXFotYEXs4MboESJzQ67B4WwQPD6Y04REQMUx68lIzZqi_e" alt="Avatar" 
+             style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            </button>
           </div>
         </div>
       </nav>
@@ -383,10 +388,6 @@ export default function FeedbackPro() {
           background: C.surfaceContainerLow, borderRight: `1px solid ${C.outlineVariant}33`,
           display: "flex", flexDirection: "column", padding: "24px 0", zIndex: 40,
         }}>
-          <div style={{ padding: "0 24px", marginBottom: 32 }}>
-            <h2 style={{ fontSize: 22, fontWeight: 700, color: C.primary }}>FeedBack Pro</h2>
-            <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.03em", color: C.onSurfaceVariant }}>Sustainability Hub</p>
-          </div>
           <nav style={{ flexGrow: 1 }}>
             {[
               { icon: "storefront", label: "Marketplace", active: false },

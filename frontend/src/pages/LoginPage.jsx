@@ -64,6 +64,11 @@ export default function LoginPage() {
       return;
     }
 
+    if (authData.user.role === "VENDOR") {
+      navigateTo("/vendordashboard");
+      return;
+    }
+
     navigateTo("/me");
   };
 

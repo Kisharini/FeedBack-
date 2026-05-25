@@ -4,6 +4,7 @@ import LoginPage from "./pages/LoginPage";
 import CurrentUserPage from "./pages/CurrentUserPage";
 import PendingApprovalsPage from "./pages/PendingApprovalsPage";
 import Register from "./pages/Register";
+import FeedbackProDashboard from "./FeedbackProDashboard"
 
 const routes = {
   "/": LandingPage,
@@ -11,6 +12,7 @@ const routes = {
   "/register": Register,
   "/me": CurrentUserPage,
   "/admin/approvals": PendingApprovalsPage,
+  "/vendordashboard": FeedbackProDashboard
 };
 
 export default function App() {
