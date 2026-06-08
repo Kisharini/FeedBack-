@@ -7,21 +7,48 @@ const asyncHandler = require("../utils/asyncHandler");
 const authMiddleware = asyncHandler(async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
+  // Check Authorization header
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    throw new ApiError(StatusCodes.UNAUTHORIZED, "Authorization token is required");
+    throw new ApiError(
+      StatusCodes.UNAUTHORIZED,
+      "Authorization token is required"
+    );
   }
 
+  // Extract token
   const token = authHeader.split(" ")[1];
-  const decoded = verifyToken(token);
+
+  let decoded;
+
+  try {
+    decoded = verifyToken(token);
+
+    console.log("Decoded JWT:", decoded);
+  } catch (error) {
+    return res.status(StatusCodes.UNAUTHORIZED).json({
+      error: "Invalid or expired token",
+    });
+  }
+
+  const userId = decoded.sub;
+
+  if (!userId) {
+    return res.status(StatusCodes.UNAUTHORIZED).json({
+      error: "Invalid token payload",
+    });
+  }
 
   const user = await prisma.user.findUnique({
-    where: { id: decoded.sub },
+    where: {
+      id: userId,
+    },
     select: {
       id: true,
       name: true,
       email: true,
       role: true,
       approvalStatus: true,
+
       ngoOrganizationName: true,
       ngoRegistrationNumber: true,
       ngoContactPhone: true,
@@ -31,6 +58,7 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
       ngoSsmDocumentPublicId: true,
       ngoSupportingDocUrls: true,
       ngoSupportingDocPublicIds: true,
+
       vendorBusinessName: true,
       vendorRegistrationNumber: true,
       vendorPlaceAddress: true,
@@ -38,6 +66,7 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
       vendorDescription: true,
       vendorSsmDocumentUrl: true,
       vendorSsmDocumentPublicId: true,
+
       riderLicenseNumber: true,
       riderPhoneNumber: true,
       riderVehicleType: true,
@@ -50,18 +79,22 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
       riderLicenseDocumentPublicId: true,
       riderVehicleGrantUrl: true,
       riderVehicleGrantPublicId: true,
+
       approvalNotes: true,
       approvedAt: true,
       createdAt: true,
-      updatedAt: true
-    }
+      updatedAt: true,
+    },
   });
 
   if (!user) {
-    throw new ApiError(StatusCodes.UNAUTHORIZED, "User associated with token no longer exists");
+    return res.status(StatusCodes.UNAUTHORIZED).json({
+      error: "User associated with token no longer exists",
+    });
   }
 
   req.user = user;
+
   next();
 });
 
