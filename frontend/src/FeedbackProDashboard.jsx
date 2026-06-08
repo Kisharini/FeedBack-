@@ -52,7 +52,17 @@ function getAuthHeaders() {
 function StatusBadge({ status, archived }) {
   if (archived)
     return (
-      <span style={{ padding: "4px 12px", borderRadius: 9999, fontSize: 12, fontWeight: 700, textTransform: "uppercase", background: C.outline, color: "#fff", }}>
+      <span
+        style={{
+          padding: "4px 12px",
+          borderRadius: 9999,
+          fontSize: 12,
+          fontWeight: 700,
+          textTransform: "uppercase",
+          background: C.outline,
+          color: "#fff",
+        }}
+      >
         Archived
       </span>
     );
@@ -133,7 +143,15 @@ function StatCard({ label, value, icon, accent, sub }) {
             {value}
           </h3>
         </div>
-        <span className="material-symbols-outlined" style={{ color: accent || C.primary, background: C.secondaryContainer, padding: 8, borderRadius: 8, fontSize: 24 }}
+        <span
+          className="material-symbols-outlined"
+          style={{
+            color: accent || C.primary,
+            background: C.secondaryContainer,
+            padding: 8,
+            borderRadius: 8,
+            fontSize: 24,
+          }}
         >
           {icon}
         </span>

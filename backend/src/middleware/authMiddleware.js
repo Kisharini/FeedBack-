@@ -48,6 +48,10 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
       email: true,
       role: true,
       approvalStatus: true,
+      approvalNotes: true,
+      approvedAt: true,
+      createdAt: true,
+      updatedAt: true,
 
       ngoOrganizationName: true,
       ngoRegistrationNumber: true,
@@ -79,11 +83,6 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
       riderLicenseDocumentPublicId: true,
       riderVehicleGrantUrl: true,
       riderVehicleGrantPublicId: true,
-
-      approvalNotes: true,
-      approvedAt: true,
-      createdAt: true,
-      updatedAt: true,
     },
   });
 
