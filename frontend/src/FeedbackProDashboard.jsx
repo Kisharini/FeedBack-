@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { jsonRequest } from "./lib/api";
 
 // ─── Theme tokens ─────────────────────────────────────────────────────────────
 const C = {
@@ -511,7 +512,6 @@ export default function FeedbackPro() {
     imageUrl: "",
   });
 
-  // FIX #3: Use correct uppercase status string
   const activeCount = listings.filter((l) => l.status === "AVAILABLE").length;
 
   useEffect(() => {
@@ -594,8 +594,7 @@ export default function FeedbackPro() {
       description: form.description,
       type: form.type,
       quantity: parseInt(form.quantity, 10),
-      unitPrice:
-        form.type === "DISCOUNTED" ? parseInt(form.unitPrice, 10) : null,
+      unitPrice: form.type === "DISCOUNTED" ? parseInt(form.unitPrice, 10) : null,
       expiryAt: expiryAtISO,
       location: form.location,
       imageUrl: form.imageUrl,
@@ -603,17 +602,13 @@ export default function FeedbackPro() {
 
     try {
       if (editingListing) {
-        // FIX #2: All mutating requests now use getAuthHeaders()
-        const response = await fetch(`/api/listings/${editingListing.id}`, {
+        const result = await jsonRequest(`/listings/${editingListing.id}`, {
           method: "PUT",
-          headers: getAuthHeaders(),
-          body: JSON.stringify(payload),
+          body: payload,
         });
 
-        if (!response.ok) throw new Error("Could not save updates to database");
-        const updatedItem = await response.json();
         setListings((ls) =>
-          ls.map((l) => (l.id === editingListing.id ? updatedItem : l))
+          ls.map((l) => (l.id === editingListing.id ? result : l))
         );
       } else {
         const response = await fetch("/api/listings", {
@@ -635,12 +630,10 @@ export default function FeedbackPro() {
 
   async function handleDelete(id) {
     try {
-      // FIX #2: DELETE now sends auth headers
-      const response = await fetch(`/api/listings/${id}`, {
+      await jsonRequest(`/listings/${id}`, {
         method: "DELETE",
-        headers: getAuthHeaders(),
       });
-      if (!response.ok) throw new Error("Failed to delete from database");
+     
       setDeletingId(id);
       setTimeout(() => {
         setListings((ls) => ls.filter((l) => l.id !== id));
@@ -656,12 +649,9 @@ export default function FeedbackPro() {
     const target = listings.find((l) => l.id === id);
     if (!target) return;
 
-    // FIX #5: Use ARCHIVED status for archiving, restore to CLAIMED for un-archiving
-    // This avoids conflicting with the AVAILABLE status used by relist
     const newStatus = target.status === "ARCHIVED" ? "CLAIMED" : "ARCHIVED";
 
     try {
-      // FIX #2: PATCH now sends auth headers
       const response = await fetch(`/api/listings/${id}`, {
         method: "PATCH",
         headers: getAuthHeaders(),
@@ -681,7 +671,6 @@ export default function FeedbackPro() {
       const freshExpiry = new Date();
       freshExpiry.setHours(freshExpiry.getHours() + 4);
 
-      // FIX #2: PATCH relist now sends auth headers
       const response = await fetch(`/api/listings/${id}`, {
         method: "PATCH",
         headers: getAuthHeaders(),
@@ -1207,8 +1196,6 @@ export default function FeedbackPro() {
         </span>
       </button>
 
-      {/* Create / Edit Modal */}
-      {/* FIX #1: Added missing closing </div> before </Modal> */}
       <Modal open={showListingModal} onClose={() => setShowListingModal(false)}>
         <div
           style={{
