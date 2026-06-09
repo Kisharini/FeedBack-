@@ -104,7 +104,7 @@ model User {
 }
 
 model Listing {
-  id          String        @id @default(cuid())
+  id          String @id @default(cuid())
   title       String
   description String
   type        ListingType
