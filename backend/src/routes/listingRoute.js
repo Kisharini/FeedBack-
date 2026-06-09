@@ -58,4 +58,83 @@ router.post("/", authMiddleware, async (req, res, next) => {
   }
 });
 
+router.put("/:id", authMiddleware, async (req, res, next) => {
+  try{
+    const { id } = req.params;
+    const activeUserId = req.user?.id;
+    const { title, description, type, quantity, unitPrice, expiryAt, location, imageUrl } = req.body;
+
+    if (!activeUserId){
+      return res.status(401).json({ error: "Unauthorized: Missing vendor authentication token" });
+    }
+
+    const existingListing = await prisma.listing.findUnique({
+      where: { id: id }
+    });
+    if (!existingListing){
+      return res.status(404).json({ error: "Listing not found" })
+    }
+   if (existingListing.vendorId !== activeUserId) {
+      return res.status(403).json({ error: "Forbidden: You do not own this listing" });
+    }
+
+    const parsedQuantity = quantity !== undefined ? parseInt(quantity, 10) : undefined;
+    const parsedUnitPrice = type === "DISCOUNTED" ? parseInt(unitPrice, 10) : (type && type !== "DISCOUNTED" ? null : undefined);
+
+    if (parsedQuantity !== undefined && isNaN(parsedQuantity)){
+      return res.status(400).json({ error: "Validation Error: Quantity must be a valid number" });
+    }
+    const updatedListing = await prisma.listing.update({
+      where: { id: id },
+      data: {
+        title,
+        description,
+        type,
+        ...(parsedQuantity !== undefined && { quantity: parsedQuantity }),
+        ...(parsedUnitPrice !== undefined && { unitPrice: parsedUnitPrice }),
+        ...(expiryAt && { expiryAt: new Date(expiryAt) }),
+        location,
+        imageUrl,
+      },
+    });
+    return res.status(200).json(updatedListing);
+   } catch (error) {
+      console.error("DATABASE UPDATE CRASH DETECTED:", error);
+      next(error);
+   }
+  });
+
+router.delete("/:id", authMiddleware, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const activeUserId = req.user?.id;
+
+    if (!activeUserId) {
+      return res.status(401).json({ error: "Unauthorized: Missing vendor authentication tracking token." });
+    }
+
+    // 1. Verify ownership before deleting
+    const existingListing = await prisma.listing.findUnique({
+      where: { id: id }
+    });
+
+    if (!existingListing) {
+      return res.status(404).json({ error: "Listing not found" });
+    }
+
+    if (existingListing.vendorId !== activeUserId) {
+      return res.status(403).json({ error: "Forbidden: You do not own this listing" });
+    }
+
+    await prisma.listing.delete({
+      where: { id: id }
+    });
+
+    return res.status(200).json({ success: true, message: "Listing successfully removed." });
+  } catch (error) {
+    console.error("DATABASE DELETE CRASH DETECTED:", error);
+    next(error);
+  }
+});
+
 module.exports = router; 
