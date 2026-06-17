@@ -56,7 +56,9 @@ export default function LoginPage() {
   };
 
   const finishAuth = (authData, successMessage) => {
+    console.log("Auth Data Received from Server:", authData);
     saveAuth(authData);
+    console.log("Token in LocalStorage right after save:", localStorage.getItem("token"));
     setMessage(successMessage);
 
     if (authData.user.role === "ADMIN") {
@@ -66,6 +68,11 @@ export default function LoginPage() {
 
     if (["INDIVIDUAL", "NGO"].includes(authData.user.role)) {
       navigateTo("/marketplace");
+      return;
+    }
+
+    if (authData.user.role === "VENDOR") {
+      navigateTo("/vendordashboard");
       return;
     }
 
@@ -136,12 +143,16 @@ export default function LoginPage() {
       }
 
       googleButtonRef.current.innerHTML = "";
+      
+      if (!window.__google_initialized){
       window.google.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
         callback: ({ credential }) => {
           handleGoogleCredentialRef.current(credential);
         },
       });
+      window.__google_initialized = true
+    }
       window.google.accounts.id.renderButton(googleButtonRef.current, {
         theme: "outline",
         size: "large",

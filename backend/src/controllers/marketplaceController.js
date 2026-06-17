@@ -473,6 +473,69 @@ const getOrderById = asyncHandler(async (req, res) => {
   });
 });
 
+const confirmSelfPickupOrder = asyncHandler(async (req, res) => {
+  buildListingAccess(req.user.role);
+
+  const order = await prisma.order.findFirst({
+    where: {
+      id: req.validated.params.orderId,
+      customerId: req.user.id,
+    },
+    include: {
+      items: {
+        include: {
+          listing: true,
+        },
+      },
+    },
+  });
+
+  if (!order) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Order not found");
+  }
+
+  if (order.deliveryOption !== "SELF_PICKUP") {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Only self-pickup orders can be manually marked as picked up"
+    );
+  }
+
+  if (order.status === "COMPLETED") {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "This order is already completed");
+  }
+
+  const now = new Date();
+
+  const updatedOrder = await prisma.order.update({
+    where: {
+      id: order.id,
+    },
+    data: {
+      status: "COMPLETED",
+      deliveredAt: order.deliveredAt || now,
+      completedAt: now,
+      trackingMessage:
+        "Pickup confirmed by the recipient. The order has been completed successfully.",
+    },
+    include: {
+      items: {
+        include: {
+          listing: true,
+        },
+      },
+    },
+  });
+
+  return res.status(StatusCodes.OK).json({
+    success: true,
+    message: "Order marked as picked up successfully",
+    data: {
+      order: mapOrder(updatedOrder),
+    },
+  });
+});
+
 const advanceMockOrderStatus = asyncHandler(async (req, res) => {
   buildListingAccess(req.user.role);
 
@@ -557,5 +620,6 @@ module.exports = {
   createOrder,
   listOrders,
   getOrderById,
+  confirmSelfPickupOrder,
   advanceMockOrderStatus,
 };

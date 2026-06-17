@@ -4,9 +4,35 @@ import { getCurrentUserFromStorage } from "../lib/auth";
 import { apiRequest } from "../lib/api";
 import { navigateTo } from "../lib/navigation";
 
+function RemoteFoodImage({ src, alt, className, fallbackClassName = "" }) {
+  const [hasError, setHasError] = useState(false);
+
+  if (!src || hasError) {
+    return (
+      <div className={`flex items-center justify-center bg-[#eef4e8] text-[#8c9b88] ${fallbackClassName}`}>
+        <span className="material-symbols-outlined">lunch_dining</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={className}
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      onError={() => setHasError(true)}
+    />
+  );
+}
+
 export default function VendorListingDashboard() {
   const [currentUser] = useState(() => getCurrentUserFromStorage());
   const [listings, setListings] = useState([]);
+  const [recentOrders, setRecentOrders] = useState([]);
+  const [listingImageFile, setListingImageFile] = useState(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState("");
   const [state, setState] = useState({
     submitting: false,
     loading: false,
@@ -39,14 +65,31 @@ export default function VendorListingDashboard() {
 
     const fetchVendorData = async () => {
       try {
-        const data = await apiRequest("/marketplace/listings", { method: "GET" });
-        if (Array.isArray(data)) setListings(data);
+        const [listingData, vendorOrdersResponse] = await Promise.all([
+          apiRequest("/vendor/listings", { method: "GET" }),
+          apiRequest("/vendor/orders", { method: "GET" }),
+        ]);
+
+        setListings(listingData?.data?.listings || []);
+        setRecentOrders(vendorOrdersResponse?.data?.orders?.slice(0, 3) || []);
       } catch (err) {
         console.error("Could not load existing inventory streams:", err);
       }
     };
     fetchVendorData();
   }, [currentUser]);
+
+  useEffect(() => {
+    if (!listingImageFile) {
+      setImagePreviewUrl("");
+      return undefined;
+    }
+
+    const objectUrl = URL.createObjectURL(listingImageFile);
+    setImagePreviewUrl(objectUrl);
+
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [listingImageFile]);
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
@@ -56,23 +99,41 @@ export default function VendorListingDashboard() {
     }));
   };
 
+  const buildPayload = () => {
+    const payload = new FormData();
+    payload.append("title", formData.title.trim());
+    payload.append("description", formData.description.trim());
+    payload.append("type", formData.type);
+    payload.append("quantity", String(Number(formData.quantity)));
+    payload.append(
+      "unitPrice",
+      String(formData.type === "DISCOUNTED" ? Math.round(Number(formData.unitPrice) * 100) : 0)
+    );
+    payload.append(
+      "expiryAt",
+      new Date(Date.now() + Number(formData.expiryHours) * 60 * 60 * 1000).toISOString()
+    );
+    payload.append("location", formData.location.trim());
+
+    if (formData.imageUrl.trim()) {
+      payload.append("imageUrl", formData.imageUrl.trim());
+    }
+
+    if (listingImageFile) {
+      payload.append("listingImage", listingImageFile);
+    }
+
+    return payload;
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setState((prev) => ({ ...prev, submitting: true, error: "", success: false }));
 
-    const payload = {
-      ...formData,
-      quantity: Number(formData.quantity),
-      originalPrice: formData.originalPrice ? Math.round(Number(formData.originalPrice) * 100) : undefined,
-      unitPrice: formData.type === "DISCOUNTED" ? Math.round(Number(formData.unitPrice) * 100) : 0,
-      expiryAt: new Date(Date.now() + Number(formData.expiryHours) * 60 * 60 * 1000).toISOString(),
-    };
-
     try {
-      // FIXED: Adjusted endpoint string path to route through the marketplace router controller prefix
-      await apiRequest("/marketplace/listings/create", {
+      await apiRequest("/listings", {
         method: "POST",
-        body: JSON.stringify(payload),
+        body: buildPayload(),
       });
 
       setState((prev) => ({ ...prev, submitting: false, success: true }));
@@ -87,10 +148,15 @@ export default function VendorListingDashboard() {
         expiryHours: "4",
         imageUrl: "",
       });
+      setListingImageFile(null);
 
       // Refresh side panel live view listings array list automatically
-      const updatedData = await apiRequest("/marketplace/listings", { method: "GET" });
-      if (Array.isArray(updatedData)) setListings(updatedData);
+      const [updatedData, vendorOrdersResponse] = await Promise.all([
+        apiRequest("/vendor/listings", { method: "GET" }),
+        apiRequest("/vendor/orders", { method: "GET" }),
+      ]);
+      setListings(updatedData?.data?.listings || []);
+      setRecentOrders(vendorOrdersResponse?.data?.orders?.slice(0, 3) || []);
 
       setTimeout(() => setState((prev) => ({ ...prev, success: false })), 4000);
     } catch (err) {
@@ -215,9 +281,34 @@ export default function VendorListingDashboard() {
               </label>
 
               <label className="flex flex-col gap-1 sm:col-span-2">
-                <span className="text-xs font-bold uppercase text-[#576455]">Snapshot Image URL</span>
-                <input type="url" name="imageUrl" value={formData.imageUrl} onChange={handleInputChange} className="rounded-xl border border-[#d8e2d2] bg-[#fbfdf7] px-4 py-2.5 outline-none focus:border-[#f2994a]" placeholder="https://images.unsplash.com/..." />
+                <span className="text-xs font-bold uppercase text-[#576455]">Upload Food Image</span>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] || null;
+                    setListingImageFile(file);
+                  }}
+                  className="rounded-xl border border-[#d8e2d2] bg-[#fbfdf7] px-4 py-2.5 text-sm outline-none file:mr-4 file:rounded-full file:border-0 file:bg-[#eef7e3] file:px-4 file:py-2 file:font-semibold file:text-primary hover:file:bg-[#e2f0cc]"
+                />
               </label>
+
+              <div className="sm:col-span-2 rounded-2xl border border-[#e7eddc] bg-[#fbfdf8] p-4">
+                <p className="text-xs font-bold uppercase text-[#576455]">Image Preview</p>
+                <div className="mt-3 flex items-center gap-4">
+                  <div className="h-24 w-24 overflow-hidden rounded-2xl border border-[#d8e2d2] bg-white">
+                    <RemoteFoodImage
+                      src={imagePreviewUrl || formData.imageUrl}
+                      alt={formData.title || "Food preview"}
+                      className="h-full w-full object-cover"
+                      fallbackClassName="h-full w-full"
+                    />
+                  </div>
+                  <p className="max-w-md text-sm text-[#687664]">
+                    Upload an image or paste an image URL to preview how your listing will look.
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div className="pt-4 border-t border-[#edf3e4] flex justify-end">
@@ -240,10 +331,20 @@ export default function VendorListingDashboard() {
             ) : (
               <div className="space-y-3 max-h-[250px] overflow-y-auto pr-1">
                 {listings.map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-[#fbfdf8] border border-[#edf3e4]">
-                    <div>
-                      <h4 className="text-xs font-bold text-[#1d301e] truncate max-w-[140px]">{item.title}</h4>
-                      <p className="text-[10px] text-gray-500">Qty: {item.quantity} Remaining</p>
+                  <div key={idx} className="flex items-center justify-between gap-3 p-2 rounded-xl bg-[#fbfdf8] border border-[#edf3e4]">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="h-12 w-12 overflow-hidden rounded-xl border border-[#e0e8d7] bg-white flex-shrink-0">
+                        <RemoteFoodImage
+                          src={item.imageUrl}
+                          alt={item.title}
+                          className="h-full w-full object-cover"
+                          fallbackClassName="h-full w-full"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-xs font-bold text-[#1d301e] truncate max-w-[140px]">{item.title}</h4>
+                        <p className="text-[10px] text-gray-500">Qty: {item.quantity} Remaining</p>
+                      </div>
                     </div>
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${item.type === "DONATION" ? "bg-green-100 text-green-800" : "bg-orange-100 text-orange-800"}`}>
                       {item.type}
@@ -259,9 +360,37 @@ export default function VendorListingDashboard() {
             <h3 className="font-sans text-md font-bold text-[#1d3720] border-b border-[#edf3e4] pb-2 mb-4">
               Recent Rescue Claims
             </h3>
-            <p className="text-xs text-[#687664] py-4 text-center">
-              No outstanding claims or pending collection items tracked today.
-            </p>
+            {recentOrders.length === 0 ? (
+              <p className="text-xs text-[#687664] py-4 text-center">
+                No customer or NGO orders have been placed on your listings yet.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {recentOrders.map((order) => (
+                  <div
+                    key={order.id}
+                    className="rounded-xl border border-[#edf3e4] bg-[#fbfdf8] p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-bold text-[#1d301e]">
+                          {order.customer.name}
+                        </p>
+                        <p className="mt-1 text-[11px] text-[#687664]">
+                          {order.customer.role} · {order.vendorItemCount} item{order.vendorItemCount === 1 ? "" : "s"}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-[#eef7e3] px-2 py-0.5 text-[10px] font-bold text-primary">
+                        {order.status}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-[11px] text-[#4f5d4b]">
+                      {order.vendorSubtotal.formatted} · {new Date(order.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

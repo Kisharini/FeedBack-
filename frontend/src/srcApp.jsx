@@ -9,27 +9,38 @@ import ListingDetailsPage from "./pages/ListingDetailsPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import OrderTrackingPage from "./pages/OrderTrackingPage";
 import AdminControlPanel from "./pages/AdminControlPanel";
-import VendorListingDashboard from "./pages/VendorListingDashboard"; 
+import ContactUsPage from "./pages/ContactUsPage";
+import PartnerWithUsPage from "./pages/PartnerWithUsPage";
+import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
+import TermsOfServicePage from "./pages/TermsOfServicePage";
+import VendorListingDashboard from "./pages/VendorListingDashboard";
+import VendorMyListingsPage from "./pages/VendorMyListingsPage";
+import VendorOrderHistoryPage from "./pages/VendorOrderHistoryPage";
 
 // IMPORTED: Match the file name exactly (RiderDeliveryHistory without 'Page')
 import RiderDashboardPage from "./pages/RiderDashboardPage";
-import RiderDeliveryHistory from "./pages/RiderDeliveryHistory"; 
+import RiderDeliveryHistory from "./pages/RiderDeliveryHistory";
 
 const staticRoutes = {
   "/": LandingPage,
   "/login": LoginPage,
   "/register": Register,
+  "/privacy-policy": PrivacyPolicyPage,
+  "/terms-of-service": TermsOfServicePage,
+  "/contact-us": ContactUsPage,
+  "/partner-with-us": PartnerWithUsPage,
   "/me": CurrentUserPage,
   "/admin/approvals": PendingApprovalsPage,
   "/marketplace": MarketplacePage,
   "/marketplace/checkout": CheckoutPage,
   "/marketplace/orders": OrderTrackingPage,
   "/admin/dashboard": AdminControlPanel,
-  "/vendor/dashboard": VendorListingDashboard, 
-  
-  // CONNECTED: Map the path to the correctly imported component
+  "/vendor/dashboard": VendorListingDashboard,
+  "/vendor/listings": VendorMyListingsPage,
+  "/vendor/orders": VendorOrderHistoryPage,
+  "/vendordashboard": VendorListingDashboard,
   "/rider/dashboard": RiderDashboardPage,
-  "/rider/history": RiderDeliveryHistory, 
+  "/rider/history": RiderDeliveryHistory,
 };
 
 const dynamicRoutes = [

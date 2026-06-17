@@ -8,6 +8,7 @@ const {
   createOrder,
   listOrders,
   getOrderById,
+  confirmSelfPickupOrder,
   advanceMockOrderStatus,
 } = require("../controllers/marketplaceController");
 const {
@@ -27,6 +28,11 @@ router.get("/listings/:listingId", validateRequest(listingParamsSchema), getList
 router.post("/orders/checkout", validateRequest(checkoutSchema), createOrder);
 router.get("/orders", listOrders);
 router.get("/orders/:orderId", validateRequest(orderParamsSchema), getOrderById);
+router.post(
+  "/orders/:orderId/confirm-pickup",
+  validateRequest(orderParamsSchema),
+  confirmSelfPickupOrder
+);
 router.post(
   "/orders/:orderId/mock-progress",
   validateRequest(orderParamsSchema),

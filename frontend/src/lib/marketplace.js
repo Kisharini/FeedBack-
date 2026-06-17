@@ -104,3 +104,13 @@ export const advanceMockOrder = (orderId) =>
     clearMarketplaceCache();
     return response;
   });
+
+export const confirmPickupOrder = (orderId) =>
+  jsonRequest(`/marketplace/orders/${orderId}/confirm-pickup`, {
+    method: "POST",
+    body: {},
+    ...withToken(),
+  }).then((response) => {
+    clearMarketplaceCache();
+    return response;
+  });

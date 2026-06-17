@@ -66,6 +66,13 @@ export default function Navbar() {
                   </button>
                   <button
                     type="button"
+                    onClick={() => navigateTo("/vendor/listings")}
+                    className="rounded-full border border-[#e2e7d8] bg-white/85 px-5 py-2 font-label-md text-label-md text-[#415041] shadow-[0_8px_20px_rgba(104,97,59,0.05)] transition-all hover:border-[#b9d48f] hover:bg-[#f7fbf1]"
+                  >
+                    My Listings
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => navigateTo("/vendor/orders")}
                     className="rounded-full border border-[#e2e7d8] bg-white/85 px-5 py-2 font-label-md text-label-md text-[#415041] shadow-[0_8px_20px_rgba(104,97,59,0.05)] transition-all hover:border-[#b9d48f] hover:bg-[#f7fbf1]"
                   >

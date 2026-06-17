@@ -4,6 +4,8 @@ import { MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from "reac
 import Navbar from "../components/Navbar";
 import { getCurrentUserFromStorage } from "../lib/auth";
 import {
+  advanceMockOrder,
+  confirmPickupOrder,
   fetchOrderById,
   fetchOrders,
 } from "../lib/marketplace";
@@ -121,7 +123,7 @@ const interpolateAlongPath = (path, progress) => {
 const getAutomationLabel = (order, updating) => {
   if (!order) return "";
   if (order.status === "COMPLETED") return "Order Completed";
-  if (order.deliveryOption === "SELF_PICKUP") return updating ? "Confirming pickup..." : "Auto Pickup Integration";
+  if (order.deliveryOption === "SELF_PICKUP") return updating ? "Confirming Pickup..." : "Pickup Awaiting Confirmation";
   return "Live Delivery Polling";
 };
 
@@ -149,6 +151,18 @@ export default function OrderTrackingPage({ orderId = null }) {
     updating: false,
   });
   const [riderPosition, setRiderPosition] = useState(null);
+
+  const applyUpdatedOrder = (updatedOrder) => {
+    setState((current) => ({
+      ...current,
+      updating: false,
+      error: "",
+      selectedOrder: updatedOrder,
+      orders: current.orders.map((order) =>
+        order.id === updatedOrder.id ? updatedOrder : order
+      ),
+    }));
+  };
 
   useEffect(() => {
     if (!currentUser) {
@@ -264,7 +278,48 @@ export default function OrderTrackingPage({ orderId = null }) {
     return () => window.clearInterval(intervalId);
   }, [state.selectedOrder?.deliveryOption, state.selectedOrder?.id, state.selectedOrder?.status]);
 
+  useEffect(() => {
+    if (
+      !state.selectedOrder ||
+      state.selectedOrder.deliveryOption !== "DELIVERY" ||
+      state.selectedOrder.status === "COMPLETED" ||
+      state.updating
+    ) {
+      return undefined;
+    }
+
+    const delayMs = autoProgressDelayMs[state.selectedOrder.status];
+
+    if (!delayMs) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        setState((current) => ({ ...current, updating: true, error: "" }));
+        const response = await advanceMockOrder(state.selectedOrder.id);
+        applyUpdatedOrder(response.data.order);
+      } catch (error) {
+        setState((current) => ({
+          ...current,
+          updating: false,
+          error: error.message,
+        }));
+      }
+    }, delayMs);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    state.selectedOrder?.deliveryOption,
+    state.selectedOrder?.id,
+    state.selectedOrder?.status,
+    state.updating,
+  ]);
+
   const isCompletedOrder = state.selectedOrder?.status === "COMPLETED";
+  const canConfirmPickup =
+    state.selectedOrder?.deliveryOption === "SELF_PICKUP" &&
+    state.selectedOrder?.status !== "COMPLETED";
   const deliveryMapData =
     state.selectedOrder?.deliveryOption === "DELIVERY"
       ? buildDeliveryMapData(state.selectedOrder)
@@ -439,8 +494,33 @@ export default function OrderTrackingPage({ orderId = null }) {
                     </div>
                     <p className="mt-2.5 text-sm leading-relaxed text-[#6e542c]">{state.selectedOrder.pickupInstructions}</p>
                     <div className="mt-4 border-t border-[#e6d0a8]/60 pt-3 text-xs text-[#7e612e]/80">
-                      {isCompletedOrder ? "This pickup order has already been completed successfully." : "The interface updates automatically when the package is verified."}
+                      {isCompletedOrder
+                        ? "This pickup order has already been completed successfully."
+                        : "Once collection happens, either you or the vendor can mark this order as picked up."}
                     </div>
+                    {canConfirmPickup && (
+                      <button
+                        type="button"
+                        disabled={state.updating}
+                        onClick={async () => {
+                          try {
+                            setState((current) => ({ ...current, updating: true, error: "" }));
+                            const response = await confirmPickupOrder(state.selectedOrder.id);
+                            applyUpdatedOrder(response.data.order);
+                          } catch (error) {
+                            setState((current) => ({
+                              ...current,
+                              updating: false,
+                              error: error.message,
+                            }));
+                          }
+                        }}
+                        className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#8c5d17] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#744a11] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">task_alt</span>
+                        {state.updating ? "Confirming Pickup..." : "Mark As Picked Up"}
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="grid gap-5 lg:grid-cols-[20rem_1fr] xl:grid-cols-[22rem_1fr]">
