@@ -2,6 +2,7 @@ const { StatusCodes } = require("http-status-codes");
 const prisma = require("../config/prisma");
 const asyncHandler = require("../utils/asyncHandler");
 const ApiError = require("../utils/apiError");
+const { creditCompletedOrderWallets } = require("../services/walletService");
 
 const ROLE_TO_LISTING_TYPE = {
   INDIVIDUAL: "DISCOUNTED",
@@ -11,41 +12,6 @@ const ROLE_TO_LISTING_TYPE = {
 const DELIVERY_FEE_AMOUNT = 800;
 const PICKUP_INSTRUCTIONS =
   "Bring your order confirmation, arrive within 30 minutes of readiness, and show the order id to the vendor.";
-
-const MOCK_RIDER = {
-  riderName: "Aiman Rider",
-  riderPhoneNumber: "+60 12-555 7821",
-  riderVehicle: "Yamaha Y15ZR",
-  riderPlateNumber: "WXY 4821",
-};
-
-const TRACKING_STEPS = {
-  FINDING_RIDER: {
-    status: "RIDER_ASSIGNED",
-    trackingLatitude: 3.139,
-    trackingLongitude: 101.6869,
-    trackingMessage: "A nearby rider has accepted your order and is heading to the vendor.",
-    ...MOCK_RIDER,
-  },
-  RIDER_ASSIGNED: {
-    status: "OUT_FOR_DELIVERY",
-    trackingLatitude: 3.1455,
-    trackingLongitude: 101.6952,
-    trackingMessage: "Your rider has collected the order and is on the way.",
-  },
-  OUT_FOR_DELIVERY: {
-    status: "DELIVERED",
-    trackingLatitude: 3.1512,
-    trackingLongitude: 101.7015,
-    trackingMessage: "The rider has arrived at your drop-off point.",
-  },
-  DELIVERED: {
-    status: "COMPLETED",
-    trackingLatitude: 3.1512,
-    trackingLongitude: 101.7015,
-    trackingMessage: "Order completed successfully.",
-  },
-};
 
 const buildListingAccess = (role) => {
   const allowedType = ROLE_TO_LISTING_TYPE[role];
@@ -494,120 +460,60 @@ const confirmSelfPickupOrder = asyncHandler(async (req, res) => {
     throw new ApiError(StatusCodes.NOT_FOUND, "Order not found");
   }
 
-  if (order.deliveryOption !== "SELF_PICKUP") {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      "Only self-pickup orders can be manually marked as picked up"
-    );
-  }
-
   if (order.status === "COMPLETED") {
     throw new ApiError(StatusCodes.BAD_REQUEST, "This order is already completed");
   }
 
+  if (order.deliveryOption === "DELIVERY" && order.status !== "DELIVERED") {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Delivery orders can only be completed after the rider arrives at the drop-off location"
+    );
+  }
+
+  if (order.deliveryOption === "SELF_PICKUP" && order.status === "PAYMENT_CONFIRMED") {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "This pickup order is not ready to be completed yet"
+    );
+  }
+
   const now = new Date();
+  const completionMessage =
+    order.deliveryOption === "SELF_PICKUP"
+      ? "Pickup confirmed by the recipient. The order has been completed successfully."
+      : "Delivery confirmed by the recipient. The order has been completed successfully.";
 
-  const updatedOrder = await prisma.order.update({
-    where: {
-      id: order.id,
-    },
-    data: {
-      status: "COMPLETED",
-      deliveredAt: order.deliveredAt || now,
-      completedAt: now,
-      trackingMessage:
-        "Pickup confirmed by the recipient. The order has been completed successfully.",
-    },
-    include: {
-      items: {
-        include: {
-          listing: true,
+  const updatedOrder = await prisma.$transaction(async (tx) => {
+    const completedOrder = await tx.order.update({
+      where: {
+        id: order.id,
+      },
+      data: {
+        status: "COMPLETED",
+        deliveredAt: order.deliveredAt || now,
+        completedAt: now,
+        trackingMessage: completionMessage,
+      },
+      include: {
+        items: {
+          include: {
+            listing: true,
+          },
         },
       },
-    },
+    });
+
+    await creditCompletedOrderWallets(tx, completedOrder);
+    return completedOrder;
   });
 
   return res.status(StatusCodes.OK).json({
     success: true,
-    message: "Order marked as picked up successfully",
-    data: {
-      order: mapOrder(updatedOrder),
-    },
-  });
-});
-
-const advanceMockOrderStatus = asyncHandler(async (req, res) => {
-  buildListingAccess(req.user.role);
-
-  const order = await prisma.order.findFirst({
-    where: {
-      id: req.validated.params.orderId,
-      customerId: req.user.id,
-    },
-  });
-
-  if (!order) {
-    throw new ApiError(StatusCodes.NOT_FOUND, "Order not found");
-  }
-
-  let nextState;
-  let extraData = {};
-
-  if (order.deliveryOption === "SELF_PICKUP") {
-    if (order.status === "COMPLETED") {
-      throw new ApiError(StatusCodes.BAD_REQUEST, "This order is already completed");
-    }
-
-    nextState = "COMPLETED";
-    extraData = {
-      completedAt: new Date(),
-      deliveredAt: new Date(),
-      trackingMessage: "Pickup confirmed. Thank you for completing the order.",
-    };
-  } else {
-    const progression = TRACKING_STEPS[order.status];
-
-    if (!progression) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        "This delivery order can no longer advance to another mocked status"
-      );
-    }
-
-    nextState = progression.status;
-    extraData = {
-      riderName: progression.riderName ?? order.riderName,
-      riderPhoneNumber: progression.riderPhoneNumber ?? order.riderPhoneNumber,
-      riderVehicle: progression.riderVehicle ?? order.riderVehicle,
-      riderPlateNumber: progression.riderPlateNumber ?? order.riderPlateNumber,
-      trackingLatitude: progression.trackingLatitude,
-      trackingLongitude: progression.trackingLongitude,
-      trackingMessage: progression.trackingMessage,
-      deliveredAt: progression.status === "DELIVERED" ? new Date() : order.deliveredAt,
-      completedAt: progression.status === "COMPLETED" ? new Date() : order.completedAt,
-    };
-  }
-
-  const updatedOrder = await prisma.order.update({
-    where: {
-      id: order.id,
-    },
-    data: {
-      status: nextState,
-      ...extraData,
-    },
-    include: {
-      items: {
-        include: {
-          listing: true,
-        },
-      },
-    },
-  });
-
-  return res.status(StatusCodes.OK).json({
-    success: true,
-    message: "Order status updated successfully",
+    message:
+      order.deliveryOption === "SELF_PICKUP"
+        ? "Order marked as picked up successfully"
+        : "Order marked as delivered successfully",
     data: {
       order: mapOrder(updatedOrder),
     },
@@ -621,5 +527,4 @@ module.exports = {
   listOrders,
   getOrderById,
   confirmSelfPickupOrder,
-  advanceMockOrderStatus,
 };

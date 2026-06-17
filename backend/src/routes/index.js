@@ -1,7 +1,9 @@
 const express = require("express");
 const authRoutes = require("./authRoutes");
 const marketplaceRoutes = require("./marketplaceRoutes");
+const riderRoutes = require("./riderRoutes");
 const vendorRoutes = require("./vendorRoutes");
+const walletRoutes = require("./walletRoutes");
 
 const router = express.Router();
 
@@ -17,7 +19,10 @@ router.get("/", (req, res) => {
       "/api/auth/pending-approvals",
       "/api/auth/users/:userId/approval",
       "/api/marketplace/listings",
-      "/api/marketplace/orders"
+      "/api/marketplace/orders",
+      "/api/rider/jobs",
+      "/api/vendor/orders",
+      "/api/wallet"
     ]
   });
 });
@@ -31,6 +36,8 @@ router.get("/health", (req, res) => {
 
 router.use("/auth", authRoutes);
 router.use("/marketplace", marketplaceRoutes);
+router.use("/rider", riderRoutes);
 router.use("/vendor", vendorRoutes);
+router.use("/wallet", walletRoutes);
 
 module.exports = router;

@@ -214,7 +214,7 @@ export default function ListingDetailsPage({ listingId }) {
 
                 <p className="mt-3.5 text-sm leading-relaxed text-[#617160]">
                   {state.listing.type === "DISCOUNTED"
-                    ? "Individuals can add this discounted item to cart, select delivery or self pickup, and choose a mock Malaysian payment option at checkout."
+                    ? "Individuals can add this discounted item to cart, select delivery or self pickup, and complete checkout using their preferred Malaysian payment method."
                     : "As an NGO representative, you are eligible to request this surplus batch entirely free of charge. Shipping fees only apply upon selecting home-delivery."}
                 </p>
               </div>
@@ -281,8 +281,8 @@ export default function ListingDetailsPage({ listingId }) {
                 <ul className="mt-3 space-y-2 text-sm leading-relaxed text-[#735327]">
                   <li className="flex gap-2"><span>1.</span> Add one or more listings to your cart.</li>
                   <li className="flex gap-2"><span>2.</span> Choose delivery or self pickup during checkout.</li>
-                  <li className="flex gap-2"><span>3.</span> Pay using a mock payment method such as FPX or Touch 'n Go.</li>
-                  <li className="flex gap-2"><span>4.</span> Track pickup readiness or mock rider delivery updates on the tracking dashboard.</li>
+                  <li className="flex gap-2"><span>3.</span> Complete payment using FPX, Touch 'n Go, or another available method.</li>
+                  <li className="flex gap-2"><span>4.</span> Track pickup readiness or rider delivery updates on the tracking dashboard.</li>
                 </ul>
               </div>
             </div>

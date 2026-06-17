@@ -146,7 +146,7 @@ export default function CheckoutPage() {
                 </h1>
               </div>
               <div className="rounded-full border border-[#f0d9b3] bg-[#fff6e8] px-4 py-2 text-sm text-[#8b5c16]">
-                Mock payment enabled
+                Secure payment flow
               </div>
             </div>
 
@@ -249,7 +249,7 @@ export default function CheckoutPage() {
                       id: "DELIVERY",
                       title: "Delivery",
                       desc:
-                        "Delivery uses mocked rider assignment. Once payment is done, the system will progress through rider states and show a live mock map.",
+                        "Delivery assigns an available rider and keeps you updated through pickup, transit, and arrival with live route tracking.",
                     },
                   ].map((option) => (
                     <label
@@ -361,7 +361,7 @@ export default function CheckoutPage() {
                   disabled={submitting || !items.length}
                   className="mt-5 w-full rounded-xl bg-primary px-4 py-3 font-semibold text-white transition hover:bg-[#f59b27] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {submitting ? "Processing mock payment..." : "Pay & Confirm Order"}
+                  {submitting ? "Processing payment..." : "Pay & Confirm Order"}
                 </button>
               </div>
             </div>

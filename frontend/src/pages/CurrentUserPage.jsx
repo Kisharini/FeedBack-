@@ -304,14 +304,14 @@ export default function CurrentUserPage() {
                   System Quick Access
                 </p>
                 <h2 className="mt-2 text-xl font-bold text-[#213722]">
-                  {state.user.role === "ADMIN" ? "Platform Control Deck" : state.user.role === "RIDER" ? "Rider Distribution Hub" : ["VENDOR", "MERCHANT"].includes(state.user.role) ? "Vendor Inventory Center" : "Ready to browse food listings"}
+                  {state.user.role === "ADMIN" ? "Platform Management" : state.user.role === "RIDER" ? "Rider Operations" : ["VENDOR", "MERCHANT"].includes(state.user.role) ? "Vendor Inventory Center" : "Ready to browse food listings"}
                 </h2>
                 <p className="mt-2.5 text-sm leading-relaxed text-[#5f6d5b]">
                   {state.user.role === "ADMIN" && "Review system logs, verify registration applications, update vendor tier profiles, or enforce item regulatory rules across the marketplace portal."}
-                  {state.user.role === "RIDER" && "Accept pending dispatch requests, communicate coordination dropoff timelines with NGOs, and view past weekly compiled performance statistics."}
+                  {state.user.role === "RIDER" && "Review available delivery assignments, manage current drop-off progress, and keep track of your delivery history and earnings."}
                   {state.user.role === "NGO" && "As an authorized NGO, you can access direct food donation batches and will only be billed for delivery fees when shipping options are chosen."}
                   {state.user.role === "INDIVIDUAL" && "As an individual participant, you have full access to heavily discounted surplus meals from nearby local vendors."}
-                  {["VENDOR", "MERCHANT"].includes(state.user.role) && "Review live store assets, build commercial food bundles, issue quick item donation broadcasts, or look over your published configurations."}
+                  {["VENDOR", "MERCHANT"].includes(state.user.role) && "Review your current listings, publish new food offers, manage fulfillment, and monitor sales and donation activity."}
                 </p>
               </div>
               

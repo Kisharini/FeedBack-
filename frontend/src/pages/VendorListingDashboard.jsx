@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
+import WalletPanel from "../components/WalletPanel";
 import { getCurrentUserFromStorage } from "../lib/auth";
 import { apiRequest } from "../lib/api";
+import { fetchWalletSummary } from "../lib/wallet";
 import { navigateTo } from "../lib/navigation";
 
 function RemoteFoodImage({ src, alt, className, fallbackClassName = "" }) {
@@ -31,6 +33,10 @@ export default function VendorListingDashboard() {
   const [currentUser] = useState(() => getCurrentUserFromStorage());
   const [listings, setListings] = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
+  const [wallet, setWallet] = useState({
+    balance: { amount: 0, formatted: "RM 0.00" },
+    transactions: [],
+  });
   const [listingImageFile, setListingImageFile] = useState(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
   const [state, setState] = useState({
@@ -52,6 +58,30 @@ export default function VendorListingDashboard() {
     imageUrl: "",
   });
 
+  const loadVendorData = async () => {
+    const [listingData, vendorOrdersResponse] = await Promise.all([
+      apiRequest("/vendor/listings", { method: "GET" }),
+      apiRequest("/vendor/orders", { method: "GET" }),
+    ]);
+
+    setListings(listingData?.data?.listings || []);
+    setRecentOrders(vendorOrdersResponse?.data?.orders?.slice(0, 3) || []);
+
+    try {
+      const walletResponse = await fetchWalletSummary();
+      setWallet(walletResponse?.data || {
+        balance: { amount: 0, formatted: "RM 0.00" },
+        transactions: [],
+      });
+    } catch (walletError) {
+      console.error("Failed to load vendor wallet:", walletError.message);
+      setWallet({
+        balance: { amount: 0, formatted: "RM 0.00" },
+        transactions: [],
+      });
+    }
+  };
+
   // Security Gate & Data Fetching
   useEffect(() => {
     if (!currentUser) {
@@ -65,18 +95,16 @@ export default function VendorListingDashboard() {
 
     const fetchVendorData = async () => {
       try {
-        const [listingData, vendorOrdersResponse] = await Promise.all([
-          apiRequest("/vendor/listings", { method: "GET" }),
-          apiRequest("/vendor/orders", { method: "GET" }),
-        ]);
-
-        setListings(listingData?.data?.listings || []);
-        setRecentOrders(vendorOrdersResponse?.data?.orders?.slice(0, 3) || []);
+        await loadVendorData();
       } catch (err) {
         console.error("Could not load existing inventory streams:", err);
       }
     };
+
     fetchVendorData();
+
+    const intervalId = window.setInterval(fetchVendorData, 15000);
+    return () => window.clearInterval(intervalId);
   }, [currentUser]);
 
   useEffect(() => {
@@ -151,19 +179,14 @@ export default function VendorListingDashboard() {
       setListingImageFile(null);
 
       // Refresh side panel live view listings array list automatically
-      const [updatedData, vendorOrdersResponse] = await Promise.all([
-        apiRequest("/vendor/listings", { method: "GET" }),
-        apiRequest("/vendor/orders", { method: "GET" }),
-      ]);
-      setListings(updatedData?.data?.listings || []);
-      setRecentOrders(vendorOrdersResponse?.data?.orders?.slice(0, 3) || []);
+      await loadVendorData();
 
       setTimeout(() => setState((prev) => ({ ...prev, success: false })), 4000);
     } catch (err) {
       setState((prev) => ({
         ...prev,
         submitting: false,
-        error: err.message || "Failed to broadcast listing. Verify inputs.",
+        error: err.message || "Failed to publish listing. Verify the details and try again.",
       }));
     }
   };
@@ -187,10 +210,10 @@ export default function VendorListingDashboard() {
                   </span>
                 </div>
                 <h1 className="font-display text-[clamp(1.8rem,3vw,2.4rem)] leading-tight text-[#1d3720]">
-                  Vendor Control Space
+                  Vendor Dashboard
                 </h1>
                 <p className="mt-2 text-sm text-[#53604a]">
-                  Publish surplus stock instantly below or manage ongoing regional rescue options on the right sidebar panel.
+                  Publish surplus stock below and manage your current listings, wallet activity, and recent orders from one place.
                 </p>
               </div>
               <div className="hidden md:block">
@@ -205,7 +228,7 @@ export default function VendorListingDashboard() {
           {state.success && (
             <div className="rounded-2xl bg-green-50 border border-green-100 p-4 text-green-800 text-sm flex items-center gap-2 font-medium">
               <span className="material-symbols-outlined text-green-600">check_circle</span>
-              Listing successfully published to the live feed!
+              Listing published successfully.
             </div>
           )}
           {state.error && (
@@ -214,6 +237,14 @@ export default function VendorListingDashboard() {
               {state.error}
             </div>
           )}
+
+          <WalletPanel
+            title="Vendor Wallet"
+            subtitle="Completed paid orders automatically credit your wallet. Donation-only orders will not add vendor earnings."
+            wallet={wallet}
+            onWalletUpdated={setWallet}
+            accentClassName="bg-[#fff4df] text-[#8c5d17] border-[#f0d9b3]"
+          />
 
           {/* Core Input Creation Form Panel */}
           <form onSubmit={handleSubmit} className="rounded-[2.5rem] border border-surface-container-high bg-white p-8 shadow-level-1 space-y-6">
@@ -327,7 +358,7 @@ export default function VendorListingDashboard() {
               Your Live Stock
             </h3>
             {listings.length === 0 ? (
-              <p className="text-xs text-[#687664] py-4 text-center">No active batch inventory broadcasting currently.</p>
+              <p className="text-xs text-[#687664] py-4 text-center">No active listings at the moment.</p>
             ) : (
               <div className="space-y-3 max-h-[250px] overflow-y-auto pr-1">
                 {listings.map((item, idx) => (
@@ -358,7 +389,7 @@ export default function VendorListingDashboard() {
           {/* Active Requests Tracking Widget */}
           <div className="rounded-[2rem] border border-surface-container-high bg-white p-6 shadow-level-1">
             <h3 className="font-sans text-md font-bold text-[#1d3720] border-b border-[#edf3e4] pb-2 mb-4">
-              Recent Rescue Claims
+              Recent Orders
             </h3>
             {recentOrders.length === 0 ? (
               <p className="text-xs text-[#687664] py-4 text-center">

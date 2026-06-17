@@ -33,6 +33,7 @@ const pickUserResponse = (user) => ({
   riderVehicleGrantUrl: user.riderVehicleGrantUrl,
   riderVehicleGrantPublicId: user.riderVehicleGrantPublicId,
   approvalNotes: user.approvalNotes,
+  walletBalance: user.walletBalance,
   approvedAt: user.approvedAt,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt
