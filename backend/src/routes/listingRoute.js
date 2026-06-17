@@ -4,6 +4,7 @@ const prisma = require("../config/prisma");
 const authMiddleware = require("../middleware/authMiddleware");
 const { uploadBufferToCloudinary } = require("../config/cloudinary");
 const { uploadListingImage } = require("../middleware/uploadMiddleware");
+const { notifyNewListing } = require("../services/notificationService");
 
 // GET all listings
 router.get("/", async (req, res, next) => {
@@ -49,18 +50,23 @@ router.post("/", authMiddleware, uploadListingImage, async (req, res, next) => {
       resolvedImageUrl = upload.url;
     }
 
-    const newListing = await prisma.listing.create({
-      data: {
-        title,
-        description,
-        type, 
-        quantity: parsedQuantity,
-        unitPrice: parsedUnitPrice,
-        expiryAt: new Date(expiryAt),
-        location,
-        imageUrl: resolvedImageUrl,
-        vendorId: activeUserId,
-      },
+    const newListing = await prisma.$transaction(async (tx) => {
+      const createdListing = await tx.listing.create({
+        data: {
+          title,
+          description,
+          type, 
+          quantity: parsedQuantity,
+          unitPrice: parsedUnitPrice,
+          expiryAt: new Date(expiryAt),
+          location,
+          imageUrl: resolvedImageUrl,
+          vendorId: activeUserId,
+        },
+      });
+
+      await notifyNewListing(tx, createdListing);
+      return createdListing;
     });
 
     return res.status(201).json(newListing);

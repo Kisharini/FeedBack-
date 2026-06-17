@@ -1,4 +1,5 @@
 import logo from "../assets/logo.png";
+import NotificationBell from "./NotificationBell";
 import { clearAuth, getCurrentUserFromStorage } from "../lib/auth";
 import { navigateTo } from "../lib/navigation";
 
@@ -34,6 +35,8 @@ export default function Navbar() {
         <div className="flex flex-wrap items-center justify-end gap-3">
           {currentUser ? (
             <>
+              <NotificationBell />
+
               {/* Individual and NGO Public View Controls */}
               {["INDIVIDUAL", "NGO"].includes(currentUser.role) && (
                 <>
