@@ -1,7 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../config/prisma");
-const authMiddleware = require("../middleware/authMiddleware")
+const authMiddleware = require("../middleware/authMiddleware");
+const { uploadBufferToCloudinary } = require("../config/cloudinary");
+const { uploadListingImage } = require("../middleware/uploadMiddleware");
 
 // GET all listings
 router.get("/", async (req, res, next) => {
@@ -16,7 +18,7 @@ router.get("/", async (req, res, next) => {
 });
 
 // POST a new listing
-router.post("/", authMiddleware, async (req, res, next) => {
+router.post("/", authMiddleware, uploadListingImage, async (req, res, next) => {
   try {
     const { title, description, type, quantity, unitPrice, expiryAt, location, imageUrl } = req.body;
     
@@ -37,6 +39,16 @@ router.post("/", authMiddleware, async (req, res, next) => {
       return res.status(400).json({ error: "Validation Error: Discounted items require a valid numeric unit price" })
     }
 
+    let resolvedImageUrl = imageUrl || null;
+
+    if (req.file) {
+      const upload = await uploadBufferToCloudinary(req.file, {
+        folder: "feedback/listing-images",
+        resource_type: "image"
+      });
+      resolvedImageUrl = upload.url;
+    }
+
     const newListing = await prisma.listing.create({
       data: {
         title,
@@ -46,7 +58,7 @@ router.post("/", authMiddleware, async (req, res, next) => {
         unitPrice: parsedUnitPrice,
         expiryAt: new Date(expiryAt),
         location,
-        imageUrl,
+        imageUrl: resolvedImageUrl,
         vendorId: activeUserId,
       },
     });
@@ -58,7 +70,7 @@ router.post("/", authMiddleware, async (req, res, next) => {
   }
 });
 
-router.put("/:id", authMiddleware, async (req, res, next) => {
+router.put("/:id", authMiddleware, uploadListingImage, async (req, res, next) => {
   try{
     const { id } = req.params;
     const activeUserId = req.user?.id;
@@ -84,6 +96,16 @@ router.put("/:id", authMiddleware, async (req, res, next) => {
     if (parsedQuantity !== undefined && isNaN(parsedQuantity)){
       return res.status(400).json({ error: "Validation Error: Quantity must be a valid number" });
     }
+    let resolvedImageUrl = imageUrl;
+
+    if (req.file) {
+      const upload = await uploadBufferToCloudinary(req.file, {
+        folder: "feedback/listing-images",
+        resource_type: "image"
+      });
+      resolvedImageUrl = upload.url;
+    }
+
     const updatedListing = await prisma.listing.update({
       where: { id: id },
       data: {
@@ -94,7 +116,7 @@ router.put("/:id", authMiddleware, async (req, res, next) => {
         ...(parsedUnitPrice !== undefined && { unitPrice: parsedUnitPrice }),
         ...(expiryAt && { expiryAt: new Date(expiryAt) }),
         location,
-        imageUrl,
+        ...(resolvedImageUrl !== undefined && { imageUrl: resolvedImageUrl || null }),
       },
     });
     return res.status(200).json(updatedListing);
@@ -124,6 +146,29 @@ router.delete("/:id", authMiddleware, async (req, res, next) => {
 
     if (existingListing.vendorId !== activeUserId) {
       return res.status(403).json({ error: "Forbidden: You do not own this listing" });
+    }
+
+    const relatedOrderItemsCount = await prisma.orderItem.count({
+      where: {
+        listingId: id,
+      },
+    });
+
+    if (relatedOrderItemsCount > 0) {
+      await prisma.listing.update({
+        where: { id },
+        data: {
+          status: "EXPIRED",
+          quantity: 0,
+          expiryAt: new Date(),
+        },
+      });
+
+      return res.status(200).json({
+        success: true,
+        softDeleted: true,
+        message: "Listing retired successfully. Existing orders remain intact.",
+      });
     }
 
     await prisma.listing.delete({

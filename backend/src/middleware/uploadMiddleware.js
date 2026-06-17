@@ -22,6 +22,21 @@ const fileFilter = (_req, file, cb) => {
   cb(null, true);
 };
 
+const imageFileFilter = (_req, file, cb) => {
+  const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp"];
+
+  if (!allowedMimeTypes.includes(file.mimetype)) {
+    return cb(
+      new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "Only JPG, PNG, and WEBP image files are allowed for listing images"
+      )
+    );
+  }
+
+  cb(null, true);
+};
+
 const uploadNgoDocuments = multer({
   storage: multer.memoryStorage(),
   fileFilter,
@@ -36,6 +51,15 @@ const uploadNgoDocuments = multer({
   { name: "riderVehicleGrantDocument", maxCount: 1 }
 ]);
 
+const uploadListingImage = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: imageFileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024
+  }
+}).single("listingImage");
+
 module.exports = {
-  uploadNgoDocuments
+  uploadNgoDocuments,
+  uploadListingImage
 };

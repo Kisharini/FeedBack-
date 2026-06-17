@@ -1,0 +1,65 @@
+const { z } = require("zod");
+
+const recipientRoles = ["INDIVIDUAL", "NGO"];
+const deliveryOptions = ["DELIVERY", "SELF_PICKUP"];
+const paymentMethods = ["FPX", "TOUCH_N_GO", "GRABPAY", "BOOST", "SHOPEEPAY"];
+
+const listingFiltersSchema = z.object({
+  body: z.object({}).optional(),
+  params: z.object({}).optional(),
+  query: z.object({
+    search: z.string().trim().max(100).optional(),
+    location: z.string().trim().max(120).optional(),
+    maxPrice: z.coerce.number().int().min(0).optional(),
+  }).optional(),
+});
+
+const listingParamsSchema = z.object({
+  body: z.object({}).optional(),
+  params: z.object({
+    listingId: z.string().trim().min(1, "Listing id is required"),
+  }),
+  query: z.object({}).optional(),
+});
+
+const checkoutSchema = z.object({
+  body: z.object({
+    items: z.array(
+      z.object({
+        listingId: z.string().trim().min(1, "Listing id is required"),
+        quantity: z.coerce.number().int().min(1, "Quantity must be at least 1"),
+      })
+    ).min(1, "At least one listing is required"),
+    deliveryOption: z.enum(deliveryOptions),
+    paymentMethod: z.enum(paymentMethods),
+    deliveryAddress: z.string().trim().min(10).max(300).optional(),
+  }).superRefine((body, ctx) => {
+    if (body.deliveryOption === "DELIVERY" && !body.deliveryAddress) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["deliveryAddress"],
+        message: "Delivery address is required when delivery is selected",
+      });
+    }
+  }),
+  params: z.object({}).optional(),
+  query: z.object({}).optional(),
+});
+
+const orderParamsSchema = z.object({
+  body: z.object({}).optional(),
+  params: z.object({
+    orderId: z.string().trim().min(1, "Order id is required"),
+  }),
+  query: z.object({}).optional(),
+});
+
+module.exports = {
+  listingFiltersSchema,
+  listingParamsSchema,
+  checkoutSchema,
+  orderParamsSchema,
+  recipientRoles,
+  deliveryOptions,
+  paymentMethods,
+};

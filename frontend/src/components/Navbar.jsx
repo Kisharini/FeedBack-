@@ -34,6 +34,73 @@ export default function Navbar() {
         <div className="flex flex-wrap items-center justify-end gap-3">
           {currentUser ? (
             <>
+              {/* Individual and NGO Public View Controls */}
+              {["INDIVIDUAL", "NGO"].includes(currentUser.role) && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => navigateTo("/marketplace")}
+                    className="rounded-full border border-[#e2e7d8] bg-white/85 px-5 py-2 font-label-md text-label-md text-[#415041] shadow-[0_8px_20px_rgba(104,97,59,0.05)] transition-all hover:border-[#b9d48f] hover:bg-[#f7fbf1]"
+                  >
+                    Marketplace
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigateTo("/marketplace/orders")}
+                    className="rounded-full border border-[#e2e7d8] bg-white/85 px-5 py-2 font-label-md text-label-md text-[#415041] shadow-[0_8px_20px_rgba(104,97,59,0.05)] transition-all hover:border-[#b9d48f] hover:bg-[#f7fbf1]"
+                  >
+                    Track Orders
+                  </button>
+                </>
+              )}
+
+              {/* Vendor & Merchant Inventory Management Actions */}
+              {["VENDOR", "MERCHANT"].includes(currentUser.role) && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => navigateTo("/vendor/dashboard")} 
+                    className="rounded-full border border-[#e2e7d8] bg-white/85 px-5 py-2 font-label-md text-label-md text-[#415041] shadow-[0_8px_20px_rgba(104,97,59,0.05)] transition-all hover:border-[#b9d48f] hover:bg-[#f7fbf1]"
+                  >
+                    Create Listing
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigateTo("/vendor/listings")}
+                    className="rounded-full border border-[#e2e7d8] bg-white/85 px-5 py-2 font-label-md text-label-md text-[#415041] shadow-[0_8px_20px_rgba(104,97,59,0.05)] transition-all hover:border-[#b9d48f] hover:bg-[#f7fbf1]"
+                  >
+                    My Listings
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigateTo("/vendor/orders")}
+                    className="rounded-full border border-[#e2e7d8] bg-white/85 px-5 py-2 font-label-md text-label-md text-[#415041] shadow-[0_8px_20px_rgba(104,97,59,0.05)] transition-all hover:border-[#b9d48f] hover:bg-[#f7fbf1]"
+                  >
+                    Order History
+                  </button>
+                </>
+              )}
+
+              {/* Rider / Delivery Driver Tracking Management Actions */}
+              {currentUser.role === "RIDER" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => navigateTo("/rider/dashboard")}
+                    className="rounded-full border border-[#e2e7d8] bg-white/85 px-5 py-2 font-label-md text-label-md text-[#415041] shadow-[0_8px_20px_rgba(104,97,59,0.05)] transition-all hover:border-[#b9d48f] hover:bg-[#f7fbf1]"
+                  >
+                    Delivery Jobs
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigateTo("/rider/history")}
+                    className="rounded-full border border-[#e2e7d8] bg-white/85 px-5 py-2 font-label-md text-label-md text-[#415041] shadow-[0_8px_20px_rgba(104,97,59,0.05)] transition-all hover:border-[#b9d48f] hover:bg-[#f7fbf1]"
+                  >
+                    Delivery History
+                  </button>
+                </>
+              )}
+
               <button
                 type="button"
                 onClick={() => navigateTo("/me")}
@@ -41,6 +108,7 @@ export default function Navbar() {
               >
                 My Account
               </button>
+
               {currentUser.role === "ADMIN" && (
                 <button
                   type="button"
@@ -50,6 +118,7 @@ export default function Navbar() {
                   Approvals
                 </button>
               )}
+
               <button
                 type="button"
                 onClick={handleLogout}

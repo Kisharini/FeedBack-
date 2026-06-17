@@ -6,12 +6,14 @@ const adapter = new PrismaPg({
   connectionString: env.databaseUrl
 });
 
+const prismaLogLevels =
+  process.env.PRISMA_QUERY_LOGS === "true"
+    ? ["query", "info", "warn", "error"]
+    : ["warn", "error"];
+
 const prisma = new PrismaClient({
   adapter,
-  log:
-    process.env.NODE_ENV === "development"
-      ? ["query", "info", "warn", "error"]
-      : ["warn", "error"]
+  log: prismaLogLevels
 });
 
 module.exports = prisma;
