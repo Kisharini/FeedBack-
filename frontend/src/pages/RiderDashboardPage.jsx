@@ -52,6 +52,27 @@ const getPickupAddress = (job) =>
   job?.items?.[0]?.pickupLocation || job?.vendor?.address || "Pickup location unavailable";
 
 const getDropoffAddress = (job) => job?.deliveryAddress || "Delivery address unavailable";
+const getPickupCoordinatesFromJob = (job) =>
+  typeof job?.items?.[0]?.pickupLatitude === "number" &&
+  typeof job?.items?.[0]?.pickupLongitude === "number"
+    ? {
+        latitude: job.items[0].pickupLatitude,
+        longitude: job.items[0].pickupLongitude,
+      }
+    : typeof job?.vendor?.pickupLatitude === "number" && typeof job?.vendor?.pickupLongitude === "number"
+      ? {
+          latitude: job.vendor.pickupLatitude,
+          longitude: job.vendor.pickupLongitude,
+        }
+      : null;
+
+const getDropoffCoordinatesFromJob = (job) =>
+  typeof job?.deliveryLatitude === "number" && typeof job?.deliveryLongitude === "number"
+    ? {
+        latitude: job.deliveryLatitude,
+        longitude: job.deliveryLongitude,
+      }
+    : null;
 
 const statusAction = {
   RIDER_ASSIGNED: {
@@ -184,9 +205,18 @@ export default function RiderDashboardPage() {
     }
 
     const loadStops = async () => {
+      const savedPickup = getPickupCoordinatesFromJob(state.activeJob);
+      const savedDropoff = getDropoffCoordinatesFromJob(state.activeJob);
+
+      if (savedPickup && savedDropoff) {
+        setPickupCoordinates(savedPickup);
+        setDropoffCoordinates(savedDropoff);
+        return;
+      }
+
       const [pickup, dropoff] = await Promise.all([
-        geocodeAddress(getPickupAddress(state.activeJob)),
-        geocodeAddress(getDropoffAddress(state.activeJob)),
+        savedPickup || geocodeAddress(getPickupAddress(state.activeJob)),
+        savedDropoff || geocodeAddress(getDropoffAddress(state.activeJob)),
       ]);
 
       if (!cancelled) {

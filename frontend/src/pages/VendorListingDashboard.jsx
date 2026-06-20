@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import AddressAutocompleteField from "../components/AddressAutocompleteField";
 import Navbar from "../components/Navbar";
 import WalletPanel from "../components/WalletPanel";
 import { getCurrentUserFromStorage } from "../lib/auth";
@@ -54,6 +55,8 @@ export default function VendorListingDashboard() {
     unitPrice: "",
     quantity: "1",
     location: currentUser?.location || "",
+    pickupLatitude: "",
+    pickupLongitude: "",
     expiryHours: "4",
     imageUrl: "",
   });
@@ -142,6 +145,8 @@ export default function VendorListingDashboard() {
       new Date(Date.now() + Number(formData.expiryHours) * 60 * 60 * 1000).toISOString()
     );
     payload.append("location", formData.location.trim());
+    payload.append("pickupLatitude", formData.pickupLatitude);
+    payload.append("pickupLongitude", formData.pickupLongitude);
 
     if (formData.imageUrl.trim()) {
       payload.append("imageUrl", formData.imageUrl.trim());
@@ -175,6 +180,8 @@ export default function VendorListingDashboard() {
         unitPrice: "",
         quantity: "1",
         location: currentUser?.location || "",
+        pickupLatitude: "",
+        pickupLongitude: "",
         expiryHours: "4",
         imageUrl: "",
       });
@@ -308,10 +315,32 @@ export default function VendorListingDashboard() {
                 <input required={formData.type === "DISCOUNTED"} disabled={formData.type === "DONATION"} type="number" min="0" step="0.01" name="unitPrice" value={formData.type === "DONATION" ? "" : formData.unitPrice} onChange={handleInputChange} placeholder={formData.type === "DONATION" ? "0.00 (Free)" : "12.00"} className={`rounded-xl border px-4 py-2.5 outline-none ${formData.type === "DONATION" ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-[#fbfdf7] focus:border-[#f2994a]"}`} />
               </label>
 
-              <label className="flex flex-col gap-1 sm:col-span-2">
-                <span className="text-xs font-bold uppercase text-[#576455]">Pickup Location Details</span>
-                <input required name="location" value={formData.location} onChange={handleInputChange} className="rounded-xl border border-[#d8e2d2] bg-[#fbfdf7] px-4 py-2.5 outline-none focus:border-[#f2994a]" placeholder="Specific floor, room counter info..." />
-              </label>
+              <AddressAutocompleteField
+                className="sm:col-span-2"
+                label="Pickup Location Details"
+                required
+                value={formData.location}
+                onValueChange={(nextValue) =>
+                  setFormData((current) => ({
+                    ...current,
+                    location: nextValue,
+                    pickupLatitude: "",
+                    pickupLongitude: "",
+                  }))
+                }
+                onLocationSelect={(location) =>
+                  setFormData((current) => ({
+                    ...current,
+                    location: location?.address || current.location,
+                    pickupLatitude:
+                      typeof location?.latitude === "number" ? String(location.latitude) : "",
+                    pickupLongitude:
+                      typeof location?.longitude === "number" ? String(location.longitude) : "",
+                  }))
+                }
+                placeholder="Search the exact vendor pickup address"
+                hint="Selecting a suggestion saves exact pickup coordinates for rider navigation."
+              />
 
               <label className="flex flex-col gap-1 sm:col-span-2">
                 <span className="text-xs font-bold uppercase text-[#576455]">Upload Food Image</span>

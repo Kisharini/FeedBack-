@@ -17,6 +17,8 @@ const mapRiderOrder = (order) => ({
   paymentMethod: order.paymentMethod,
   totalAmount: order.totalAmount,
   deliveryAddress: order.deliveryAddress,
+  deliveryLatitude: order.deliveryLatitude,
+  deliveryLongitude: order.deliveryLongitude,
   tracking: order.trackingLatitude && order.trackingLongitude
     ? {
         latitude: order.trackingLatitude,
@@ -50,6 +52,8 @@ const mapRiderOrder = (order) => ({
         businessName: order.items[0].listing.vendor.vendorBusinessName,
         contactPhone: order.items[0].listing.vendor.vendorContactPhone,
         address: order.items[0].listing.vendor.vendorPlaceAddress || order.items[0].listing.location,
+        pickupLatitude: order.items[0].listing.pickupLatitude,
+        pickupLongitude: order.items[0].listing.pickupLongitude,
       }
     : null,
   items: order.items.map((item) => ({
@@ -58,6 +62,8 @@ const mapRiderOrder = (order) => ({
     quantity: item.quantity,
     listingType: item.listingType,
     pickupLocation: item.listing?.location || null,
+    pickupLatitude: item.listing?.pickupLatitude ?? null,
+    pickupLongitude: item.listing?.pickupLongitude ?? null,
     imageUrl: item.listing?.imageUrl || null,
   })),
 });

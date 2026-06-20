@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import AddressAutocompleteField from "../components/AddressAutocompleteField";
 import Navbar from "../components/Navbar";
 import {
   clearCart,
@@ -29,6 +30,7 @@ export default function CheckoutPage() {
   const [deliveryOption, setDeliveryOption] = useState("SELF_PICKUP");
   const [paymentMethod, setPaymentMethod] = useState("FPX");
   const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryCoordinates, setDeliveryCoordinates] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
@@ -93,6 +95,10 @@ export default function CheckoutPage() {
         deliveryOption,
         paymentMethod,
         deliveryAddress: deliveryOption === "DELIVERY" ? deliveryAddress : undefined,
+        deliveryLatitude:
+          deliveryOption === "DELIVERY" ? deliveryCoordinates?.latitude : undefined,
+        deliveryLongitude:
+          deliveryOption === "DELIVERY" ? deliveryCoordinates?.longitude : undefined,
       });
 
       clearCart();
@@ -280,35 +286,22 @@ export default function CheckoutPage() {
 
               {deliveryOption === "DELIVERY" && (
                 <div className="rounded-[1.5rem] border border-[#ebefdf] bg-white p-4">
-                  <label className="block text-sm font-semibold text-[#2a4128]">
-                    Delivery Address
-                  </label>
-                  <textarea
-                    rows="4"
+                  <AddressAutocompleteField
+                    label="Delivery Address"
+                    required
                     value={deliveryAddress}
-                    onChange={(event) => {
-                      setDeliveryAddress(event.target.value);
+                    onValueChange={(nextValue) => {
+                      setDeliveryAddress(nextValue);
                       setFieldErrors((current) => ({
                         ...current,
                         deliveryAddress: undefined,
                       }));
                     }}
-                    className={`mt-3 w-full rounded-xl border bg-[#fbfdf7] px-4 py-3 text-on-surface outline-none transition focus:border-primary ${
-                      fieldErrors.deliveryAddress?.length
-                        ? "border-red-300"
-                        : "border-[#d8e2d2]"
-                    }`}
-                    placeholder="Enter full address for the rider"
+                    onLocationSelect={setDeliveryCoordinates}
+                    placeholder="Search and select the rider drop-off address"
+                    hint="Include house or unit number, street, and area. Selecting a suggestion stores precise coordinates for rider routing."
+                    error={fieldErrors.deliveryAddress?.[0] || ""}
                   />
-                  <p className="mt-2 text-xs leading-5 text-[#6a7768]">
-                    Use at least 10 characters and include a clear address such as house or
-                    unit number, street, and area.
-                  </p>
-                  {fieldErrors.deliveryAddress?.length ? (
-                    <p className="mt-2 text-sm text-red-600">
-                      {fieldErrors.deliveryAddress[0]}
-                    </p>
-                  ) : null}
                 </div>
               )}
 

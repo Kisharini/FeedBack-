@@ -40,6 +40,8 @@ const mapListing = (listing) => ({
   quantity: listing.quantity,
   expiryAt: listing.expiryAt,
   location: listing.location,
+  pickupLatitude: listing.pickupLatitude,
+  pickupLongitude: listing.pickupLongitude,
   imageUrl: listing.imageUrl,
   status: listing.status,
   unitPrice: listing.type === "DISCOUNTED" ? toMoney(listing.unitPrice || 0) : toMoney(0),
@@ -63,6 +65,8 @@ const mapOrder = (order) => ({
   deliveryFeeAmount: toMoney(order.deliveryFeeAmount),
   totalAmount: toMoney(order.totalAmount),
   deliveryAddress: order.deliveryAddress,
+  deliveryLatitude: order.deliveryLatitude,
+  deliveryLongitude: order.deliveryLongitude,
   pickupInstructions: order.pickupInstructions,
   rider: order.riderName
     ? {
@@ -102,6 +106,8 @@ const mapOrder = (order) => ({
     listing: item.listing
       ? {
           location: item.listing.location,
+          pickupLatitude: item.listing.pickupLatitude,
+          pickupLongitude: item.listing.pickupLongitude,
           imageUrl: item.listing.imageUrl,
           expiryAt: item.listing.expiryAt,
         }
@@ -231,7 +237,14 @@ const getListingById = asyncHandler(async (req, res) => {
 
 const createOrder = asyncHandler(async (req, res) => {
   const allowedType = buildListingAccess(req.user.role);
-  const { items, deliveryOption, paymentMethod, deliveryAddress } = req.validated.body;
+  const {
+    items,
+    deliveryOption,
+    paymentMethod,
+    deliveryAddress,
+    deliveryLatitude,
+    deliveryLongitude,
+  } = req.validated.body;
   const listingIds = [...new Set(items.map((item) => item.listingId))];
   const quantityMap = new Map(items.map((item) => [item.listingId, item.quantity]));
 
@@ -311,6 +324,8 @@ const createOrder = asyncHandler(async (req, res) => {
         deliveryFeeAmount,
         totalAmount,
         deliveryAddress: deliveryOption === "DELIVERY" ? deliveryAddress : null,
+        deliveryLatitude: deliveryOption === "DELIVERY" ? deliveryLatitude ?? null : null,
+        deliveryLongitude: deliveryOption === "DELIVERY" ? deliveryLongitude ?? null : null,
         pickupInstructions: deliveryOption === "SELF_PICKUP" ? PICKUP_INSTRUCTIONS : null,
         trackingMessage,
         paidAt: now,
