@@ -2,6 +2,7 @@ const { StatusCodes } = require("http-status-codes");
 const prisma = require("../config/prisma");
 const asyncHandler = require("../utils/asyncHandler");
 const ApiError = require("../utils/apiError");
+const { matchFoodListings } = require("../utils/matchingEngine");
 
 const ROLE_TO_LISTING_TYPE = {
   INDIVIDUAL: "DISCOUNTED",
@@ -78,6 +79,8 @@ const mapListing = (listing) => ({
   status: listing.status,
   unitPrice: listing.type === "DISCOUNTED" ? toMoney(listing.unitPrice || 0) : toMoney(0),
   accessRole: listing.type === "DISCOUNTED" ? "INDIVIDUAL" : "NGO",
+  matchScore: listing.matchScore,
+  distanceKM: listing.distanceKM ?? null,
   vendor: {
     id: listing.vendor.id,
     name: listing.vendor.name,
@@ -217,12 +220,24 @@ const listListings = asyncHandler(async (req, res) => {
     ],
   });
 
+  // 1. Map query values cleanly to match userPreferences structure for your text matching file
+  const userPreferences = {
+    userLocationText: req.validated.query.location || "",
+    neededQuantity: req.validated.query.neededQuantity ? parseInt(req.validated.query.neededQuantity, 10) : 1,
+    userRole: req.user.role,
+    preferredTypes: req.validated.query.search ? [req.validated.query.search] : [],
+  };
+
+  // 2. Run database list rows through your matching logic engine to compute listing.matchScore
+  const scoredRawListings = matchFoodListings(userPreferences, listings);
+
+  // 3. Output payload cleanly formatted using mapListing helper 
   return res.status(StatusCodes.OK).json({
     success: true,
     message: "Listings fetched successfully",
     data: {
       audience: req.user.role,
-      listings: listings.map(mapListing),
+      listings: scoredRawListings.map(mapListing),
     },
   });
 });
