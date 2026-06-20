@@ -23,16 +23,20 @@ const money = (moneyValue) => moneyValue?.formatted || "RM 0.00";
 export default function MarketplacePage() {
   const [currentUser] = useState(() => getCurrentUserFromStorage());
   const copy = audienceCopy[currentUser?.role] || audienceCopy.INDIVIDUAL;
+  
   const [filters, setFilters] = useState({
     search: "",
     location: "",
+    neededQuantity: 1, 
     maxPrice: "",
   });
+  
   const [state, setState] = useState({
     loading: true,
     error: "",
     listings: [],
   });
+  
   const [cartCount, setCartCount] = useState(() =>
     currentUser ? getCartCount(currentUser.role) : 0
   );
@@ -55,18 +59,23 @@ export default function MarketplacePage() {
     const loadListings = async () => {
       setState((current) => ({ ...current, loading: true, error: "" }));
       try {
+        const calculatedMaxPrice =
+          currentUser.role === "INDIVIDUAL" && filters.maxPrice
+            ? Math.round(Number(filters.maxPrice) * 100)
+            : undefined;
+
+        // Pipe textual matching filters to the backend service securely
         const response = await fetchListings({
-          search: filters.search,
-          location: filters.location,
-          maxPrice:
-            currentUser.role === "INDIVIDUAL" && filters.maxPrice
-              ? Number(filters.maxPrice) * 100
-              : undefined,
+          search: filters.search.trim() || undefined,
+          location: filters.location.trim() || undefined,
+          maxPrice: calculatedMaxPrice,
+          neededQuantity: Number(filters.neededQuantity) || 1,
+          userRole: currentUser.role
         });
         setState({
           loading: false,
           error: "",
-          listings: response.data.listings,
+          listings: response.data?.listings || [],
         });
       } catch (error) {
         setState({
@@ -77,7 +86,7 @@ export default function MarketplacePage() {
       }
     };
     loadListings();
-  }, [currentUser, filters.location, filters.maxPrice, filters.search]);
+  }, [currentUser, filters.location, filters.maxPrice, filters.search, filters.neededQuantity]);
 
   useEffect(() => {
     const syncCartCount = () => {
@@ -104,6 +113,7 @@ export default function MarketplacePage() {
     <div className="min-h-screen bg-background text-on-background font-body-md">
       <Navbar />
       <main className="mx-auto max-w-7xl px-6 py-10">
+
         <section className="overflow-hidden rounded-[2.5rem] border border-[#e6ebda] bg-[linear-gradient(135deg,#fff9ef_0%,#f5fbe9_48%,#eef7ff_100%)] p-8 shadow-level-2">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
@@ -111,7 +121,7 @@ export default function MarketplacePage() {
                 <span className="text-black">Hello</span>
                 <span className="text-[#F2994A]">
                   {currentUser?.role === "NGO"
-                    ? (currentUser?.businessName || currentUser?.name?.split(" ")[0])
+                    ? currentUser?.businessName || currentUser?.name?.split(" ")[0]
                     : currentUser?.name?.split(" ")[0] || "User"}!
                 </span>
               </div>
@@ -152,9 +162,9 @@ export default function MarketplacePage() {
         </section>
 
         <section className="mt-8 rounded-[2rem] border border-surface-container-high bg-white p-6 shadow-level-1">
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-4">
             <label className="flex flex-col gap-2">
-              <span className="font-label-md text-label-md uppercase text-on-surface">Search</span>
+              <span className="font-label-md text-label-md uppercase text-on-surface">Food</span>
               <input
                 name="search"
                 value={filters.search}
@@ -171,6 +181,17 @@ export default function MarketplacePage() {
                 onChange={handleChange}
                 className="rounded-xl border border-[#d8e2d2] bg-[#fbfdf7] px-4 py-3 text-on-surface outline-none transition focus:border-primary"
                 placeholder="Area or neighborhood"
+              />
+            </label>
+            <label className="flex flex-col gap-2">
+              <span className="font-label-md text-label-md uppercase text-on-surface">Required Quantity</span>
+              <input
+                name="neededQuantity"
+                type="number"
+                min="1"
+                value={filters.neededQuantity}
+                onChange={handleChange}
+                className="rounded-xl border border-[#d8e2d2] bg-[#fbfdf7] px-4 py-3 text-on-surface outline-none transition focus:border-primary"
               />
             </label>
             {currentUser?.role === "INDIVIDUAL" && (
@@ -213,8 +234,16 @@ export default function MarketplacePage() {
             {state.listings.map((listing) => (
               <article
                 key={listing.id}
-                className="group overflow-hidden rounded-[2rem] border border-[#ebefdf] bg-white shadow-[0_16px_32px_rgba(92,103,70,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_48px_rgba(92,103,70,0.12)]"
+                className="group relative overflow-hidden rounded-[2rem] border border-[#ebefdf] bg-white shadow-[0_16px_32px_rgba(92,103,70,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_48px_rgba(92,103,70,0.12)]"
               >
+                {/* AI Score Badge */}
+                {listing.matchScore !== undefined && (
+                  <div className="absolute top-4 right-4 z-10 flex items-center gap-1 rounded-full bg-emerald-600 px-3 py-1 font-sans text-xs font-bold text-white shadow-md">
+                    <span className="material-symbols-outlined text-[14px]">psychology</span>
+                    {listing.matchScore}% Match
+                  </div>
+                )}
+
                 <div className="relative h-48 overflow-hidden bg-[linear-gradient(135deg,#b8e67f_0%,#ffe7a2_100%)]">
                   {listing.imageUrl ? (
                     <img
@@ -230,9 +259,13 @@ export default function MarketplacePage() {
                       </div>
                     </div>
                   )}
-                  <div className={`absolute left-4 top-4 rounded-full px-3 py-1 text-xs font-bold tracking-wide shadow-sm ${
-                    listing.type === "DISCOUNTED" ? "bg-white/95 text-[#F2994A] border border-[#f2994a]/20" : "bg-white/88 text-[#355528]"
-                  }`}>
+                  <div
+                    className={`absolute left-4 top-4 rounded-full px-3 py-1 text-xs font-bold tracking-wide shadow-sm ${
+                      listing.type === "DISCOUNTED"
+                        ? "bg-white/95 text-[#F2994A] border border-[#f2994a]/20"
+                        : "bg-white/88 text-[#355528]"
+                    }`}
+                  >
                     {listing.type === "DISCOUNTED" ? "50% Discount" : "Donation"}
                   </div>
                 </div>
@@ -273,9 +306,21 @@ export default function MarketplacePage() {
 
                   <div className="grid grid-cols-2 gap-3 rounded-[1.4rem] bg-[#fbfdf8] p-4">
                     <InfoPill icon="inventory_2" label="Quantity" value={`${listing.quantity}`} />
-                    <InfoPill icon="location_on" label="Location" value={listing.location} />
-                    <InfoPill icon="schedule" label="Expires" value={new Date(listing.expiryAt).toLocaleDateString()} />
-                    <InfoPill icon="local_shipping" label="Delivery" value="Available" />
+                    <InfoPill 
+                      icon="location_on" 
+                      label="Location" 
+                      value={listing.distanceKM ? `${listing.distanceKM} km away` : listing.location} 
+                    />
+                    <InfoPill
+                      icon="schedule"
+                      label="Expires"
+                      value={new Date(listing.expiryAt).toLocaleString()}
+                    />
+                    <InfoPill
+                      icon="local_shipping"
+                      label="Delivery"
+                      value="Mock delivery available"
+                    />
                   </div>
 
                   <button
