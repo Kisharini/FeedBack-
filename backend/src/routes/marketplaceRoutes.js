@@ -9,6 +9,7 @@ const {
   listOrders,
   getOrderById,
   confirmSelfPickupOrder,
+  advanceMockOrderStatus,
 } = require("../controllers/marketplaceController");
 const {
   listingFiltersSchema,
@@ -31,6 +32,11 @@ router.post(
   "/orders/:orderId/confirm-pickup",
   validateRequest(orderParamsSchema),
   confirmSelfPickupOrder
+);
+router.post(
+  "/orders/:orderId/mock-progress",
+  validateRequest(orderParamsSchema),
+  advanceMockOrderStatus
 );
 
 module.exports = router;

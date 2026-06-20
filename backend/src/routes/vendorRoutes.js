@@ -87,6 +87,8 @@ router.get("/orders", async (req, res, next) => {
               select: {
                 id: true,
                 location: true,
+                pickupLatitude: true,
+                pickupLongitude: true,
                 imageUrl: true,
                 expiryAt: true,
                 vendorId: true,
@@ -113,6 +115,8 @@ router.get("/orders", async (req, res, next) => {
         paidAt: order.paidAt,
         updatedAt: order.updatedAt,
         deliveryAddress: order.deliveryAddress,
+        deliveryLatitude: order.deliveryLatitude,
+        deliveryLongitude: order.deliveryLongitude,
         pickupInstructions: order.pickupInstructions,
         rider: order.rider
           ? {
@@ -160,6 +164,8 @@ router.get("/orders", async (req, res, next) => {
             ? {
                 id: item.listing.id,
                 location: item.listing.location,
+                pickupLatitude: item.listing.pickupLatitude,
+                pickupLongitude: item.listing.pickupLongitude,
                 imageUrl: item.listing.imageUrl,
                 expiryAt: item.listing.expiryAt,
               }

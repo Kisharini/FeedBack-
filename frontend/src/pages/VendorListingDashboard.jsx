@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import AddressAutocompleteField from "../components/AddressAutocompleteField";
 import Navbar from "../components/Navbar";
 import WalletPanel from "../components/WalletPanel";
 import { getCurrentUserFromStorage } from "../lib/auth";
@@ -54,18 +55,28 @@ export default function VendorListingDashboard() {
     unitPrice: "",
     quantity: "1",
     location: currentUser?.location || "",
+    pickupLatitude: "",
+    pickupLongitude: "",
     expiryHours: "4",
     imageUrl: "",
   });
 
   const loadVendorData = async () => {
-    const [listingData, vendorOrdersResponse] = await Promise.all([
-      apiRequest("/vendor/listings", { method: "GET" }),
-      apiRequest("/vendor/orders", { method: "GET" }),
-    ]);
+    try {
+      const [listingData, vendorOrdersResponse] = await Promise.all([
+        apiRequest("/vendor/listings", { method: "GET" }),
+        apiRequest("/vendor/orders", { method: "GET" }),
+      ]);
 
-    setListings(listingData?.data?.listings || []);
-    setRecentOrders(vendorOrdersResponse?.data?.orders?.slice(0, 3) || []);
+      // SAFE FALLBACK EXTRACTION MATCHING YOUR BACKEND ARCHITECTURE
+      const listingsArray = listingData?.listings || listingData?.data?.listings || [];
+      const ordersArray = vendorOrdersResponse?.orders || vendorOrdersResponse?.data?.orders || [];
+
+      setListings(listingsArray);
+      setRecentOrders(ordersArray.slice(0, 3));
+    } catch (err) {
+      console.error("Data streams connection sync error:", err.message);
+    }
 
     try {
       const walletResponse = await fetchWalletSummary();
@@ -93,17 +104,9 @@ export default function VendorListingDashboard() {
       return;
     }
 
-    const fetchVendorData = async () => {
-      try {
-        await loadVendorData();
-      } catch (err) {
-        console.error("Could not load existing inventory streams:", err);
-      }
-    };
+    loadVendorData();
 
-    fetchVendorData();
-
-    const intervalId = window.setInterval(fetchVendorData, 15000);
+    const intervalId = window.setInterval(loadVendorData, 15000);
     return () => window.clearInterval(intervalId);
   }, [currentUser]);
 
@@ -142,6 +145,8 @@ export default function VendorListingDashboard() {
       new Date(Date.now() + Number(formData.expiryHours) * 60 * 60 * 1000).toISOString()
     );
     payload.append("location", formData.location.trim());
+    payload.append("pickupLatitude", formData.pickupLatitude);
+    payload.append("pickupLongitude", formData.pickupLongitude);
 
     if (formData.imageUrl.trim()) {
       payload.append("imageUrl", formData.imageUrl.trim());
@@ -165,6 +170,8 @@ export default function VendorListingDashboard() {
       });
 
       setState((prev) => ({ ...prev, submitting: false, success: true }));
+      
+      // Clear data fields correctly
       setFormData({
         title: "",
         description: "",
@@ -173,12 +180,14 @@ export default function VendorListingDashboard() {
         unitPrice: "",
         quantity: "1",
         location: currentUser?.location || "",
+        pickupLatitude: "",
+        pickupLongitude: "",
         expiryHours: "4",
         imageUrl: "",
       });
       setListingImageFile(null);
 
-      // Refresh side panel live view listings array list automatically
+      // Instantly trigger re-pull so the right sidebar panel reflects items right away
       await loadVendorData();
 
       setTimeout(() => setState((prev) => ({ ...prev, success: false })), 4000);
@@ -306,10 +315,32 @@ export default function VendorListingDashboard() {
                 <input required={formData.type === "DISCOUNTED"} disabled={formData.type === "DONATION"} type="number" min="0" step="0.01" name="unitPrice" value={formData.type === "DONATION" ? "" : formData.unitPrice} onChange={handleInputChange} placeholder={formData.type === "DONATION" ? "0.00 (Free)" : "12.00"} className={`rounded-xl border px-4 py-2.5 outline-none ${formData.type === "DONATION" ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-[#fbfdf7] focus:border-[#f2994a]"}`} />
               </label>
 
-              <label className="flex flex-col gap-1 sm:col-span-2">
-                <span className="text-xs font-bold uppercase text-[#576455]">Pickup Location Details</span>
-                <input required name="location" value={formData.location} onChange={handleInputChange} className="rounded-xl border border-[#d8e2d2] bg-[#fbfdf7] px-4 py-2.5 outline-none focus:border-[#f2994a]" placeholder="Specific floor, room counter info..." />
-              </label>
+              <AddressAutocompleteField
+                className="sm:col-span-2"
+                label="Pickup Location Details"
+                required
+                value={formData.location}
+                onValueChange={(nextValue) =>
+                  setFormData((current) => ({
+                    ...current,
+                    location: nextValue,
+                    pickupLatitude: "",
+                    pickupLongitude: "",
+                  }))
+                }
+                onLocationSelect={(location) =>
+                  setFormData((current) => ({
+                    ...current,
+                    location: location?.address || current.location,
+                    pickupLatitude:
+                      typeof location?.latitude === "number" ? String(location.latitude) : "",
+                    pickupLongitude:
+                      typeof location?.longitude === "number" ? String(location.longitude) : "",
+                  }))
+                }
+                placeholder="Search the exact vendor pickup address"
+                hint="Selecting a suggestion saves exact pickup coordinates for rider navigation."
+              />
 
               <label className="flex flex-col gap-1 sm:col-span-2">
                 <span className="text-xs font-bold uppercase text-[#576455]">Upload Food Image</span>
@@ -405,10 +436,10 @@ export default function VendorListingDashboard() {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-xs font-bold text-[#1d301e]">
-                          {order.customer.name}
+                          {order.customer?.name || "Customer"}
                         </p>
                         <p className="mt-1 text-[11px] text-[#687664]">
-                          {order.customer.role} · {order.vendorItemCount} item{order.vendorItemCount === 1 ? "" : "s"}
+                          {order.customer?.role || "USER"} · {order.vendorItemCount} item{order.vendorItemCount === 1 ? "" : "s"}
                         </p>
                       </div>
                       <span className="rounded-full bg-[#eef7e3] px-2 py-0.5 text-[10px] font-bold text-primary">
@@ -416,7 +447,7 @@ export default function VendorListingDashboard() {
                       </span>
                     </div>
                     <p className="mt-2 text-[11px] text-[#4f5d4b]">
-                      {order.vendorSubtotal.formatted} · {new Date(order.createdAt).toLocaleDateString()}
+                      {order.vendorSubtotal?.formatted || "RM 0.00"} · {new Date(order.createdAt).toLocaleDateString()}
                     </p>
                   </div>
                 ))}

@@ -1,17 +1,6 @@
 const geocodeCache = new Map();
 const routeCache = new Map();
 
-const hashString = (value) =>
-  value.split("").reduce((sum, character, index) => sum + character.charCodeAt(0) * (index + 1), 0);
-
-const buildFallbackCoordinates = (value) => {
-  const seed = hashString(value || "fallback");
-  return {
-    latitude: 3.139 + ((seed % 180) - 90) * 0.00035,
-    longitude: 101.6869 + ((Math.floor(seed / 7) % 180) - 90) * 0.00035,
-  };
-};
-
 export const getCurrentBrowserLocation = () =>
   new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
@@ -75,9 +64,7 @@ export const geocodeAddress = async (address) => {
     console.error("Failed to geocode address:", normalized, error);
   }
 
-  const fallback = buildFallbackCoordinates(normalized);
-  geocodeCache.set(normalized, fallback);
-  return fallback;
+  return null;
 };
 
 export const fetchDrivingRoute = async (start, end) => {

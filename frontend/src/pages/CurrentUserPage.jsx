@@ -4,6 +4,12 @@ import { getToken } from "../lib/auth";
 import { apiRequest } from "../lib/api";
 import { navigateTo } from "../lib/navigation";
 
+const formatRole = (role) => {
+  if (!role) return "User";
+  if (["NGO", "FPX"].includes(role)) return role;
+  return role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+};
+
 export default function CurrentUserPage() {
   const [state, setState] = useState({
     loading: true,
@@ -13,14 +19,12 @@ export default function CurrentUserPage() {
 
   useEffect(() => {
     const token = getToken();
-
     if (!token) {
       navigateTo("/login");
       return;
     }
 
     let isMounted = true;
-
     apiRequest("/auth/me", { token })
       .then((response) => {
         if (isMounted) {
@@ -106,7 +110,7 @@ export default function CurrentUserPage() {
                       <span className={`h-1.5 w-1.5 rounded-full mr-1.5 ${
                         (state.user.approvalStatus || "APPROVED") === "APPROVED" ? "bg-green-500" : "bg-amber-500"
                       }`} />
-                      {state.user.approvalStatus || "APPROVED"}
+                      {formatRole(state.user.approvalStatus || "APPROVED")}
                     </span>
                   </div>
                 </div>
@@ -120,7 +124,7 @@ export default function CurrentUserPage() {
                     <span className="material-symbols-outlined text-[18px] text-[#f2994a]">
                       {state.user.role === "NGO" ? "corporate_fare" : state.user.role === "RIDER" ? "moped" : state.user.role === "ADMIN" ? "admin_panel_settings" : ["VENDOR", "MERCHANT"].includes(state.user.role) ? "storefront" : "person"}
                     </span>
-                    {state.user.role} Member
+                    {formatRole(state.user.role)} Member
                   </p>
                 </div>
                 <div>
@@ -142,7 +146,7 @@ export default function CurrentUserPage() {
               </div>
             </div>
 
-            {/* Vendor & Merchant Impact Sustainability Streams */}
+            {/* Vendor & Merchant Impact Analytics */}
             {["VENDOR", "MERCHANT"].includes(state.user.role) && (
               <div className="space-y-6">
                 <h3 className="text-lg font-bold text-[#1f3520] px-1 flex items-center gap-2">
@@ -297,7 +301,7 @@ export default function CurrentUserPage() {
               </div>
             )}
 
-            {/* Contextual Route Switcher Footer Panel */}
+            {/* Access Route Switcher Panel */}
             <div className="rounded-[2rem] border border-[#e7eddc] bg-[linear-gradient(135deg,#fff9ef_0%,#f5fbe8_50%,#eef7ff_100%)] p-8 shadow-sm">
               <div className="max-w-2xl">
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#6f7f6c]">
@@ -321,15 +325,17 @@ export default function CurrentUserPage() {
                     <button
                       type="button"
                       onClick={() => navigateTo("/marketplace")}
-                      className="rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white transition shadow-sm hover:bg-[#f59b27]"
+                      className="rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white transition shadow-sm hover:bg-[#f59b27] inline-flex items-center gap-1.5"
                     >
+                      <span className="material-symbols-outlined text-sm">storefront</span>
                       Open Marketplace
                     </button>
                     <button
                       type="button"
                       onClick={() => navigateTo("/marketplace/orders")}
-                      className="rounded-xl border border-[#d6e0ca] bg-white px-5 py-3 text-sm font-medium text-[#264027] transition shadow-sm hover:bg-[#f6faef]"
+                      className="rounded-xl border border-[#d6e0ca] bg-white px-5 py-3 text-sm font-medium text-[#264027] transition shadow-sm hover:bg-[#f6faef] inline-flex items-center gap-1.5"
                     >
+                      <span className="material-symbols-outlined text-sm">local_shipping</span>
                       Track Order Status
                     </button>
                   </>
@@ -338,8 +344,9 @@ export default function CurrentUserPage() {
                   <button
                     type="button"
                     onClick={() => navigateTo("/vendor/dashboard")}
-                    className="rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white transition shadow-sm hover:bg-[#f59b27]"
+                    className="rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white transition shadow-sm hover:bg-[#f59b27] inline-flex items-center gap-1.5"
                   >
+                    <span className="material-symbols-outlined text-sm">add_circle</span>
                     Add New Listing
                   </button>
                 )}
@@ -347,8 +354,9 @@ export default function CurrentUserPage() {
                   <button
                     type="button"
                     onClick={() => navigateTo("/rider/dashboard")}
-                    className="rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white transition shadow-sm hover:bg-[#f59b27]"
+                    className="rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white transition shadow-sm hover:bg-[#f59b27] inline-flex items-center gap-1.5"
                   >
+                    <span className="material-symbols-outlined text-sm">directions_bike</span>
                     Launch Dispatch Tasks
                   </button>
                 )}
@@ -356,8 +364,9 @@ export default function CurrentUserPage() {
                   <button
                     type="button"
                     onClick={() => navigateTo("/admin/dashboard")}
-                    className="rounded-xl bg-[#213722] px-5 py-3 text-sm font-semibold text-white transition shadow-sm hover:bg-black"
+                    className="rounded-xl bg-[#213722] px-5 py-3 text-sm font-semibold text-white transition shadow-sm hover:bg-black inline-flex items-center gap-1.5"
                   >
+                    <span className="material-symbols-outlined text-sm">admin_panel_settings</span>
                     Open Admin Control Panel
                   </button>
                 )}

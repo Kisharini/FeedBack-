@@ -1,9 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Navbar from "../components/Navbar";
 import WalletPanel from "../components/WalletPanel";
 import { clearAuth, getCurrentUserFromStorage } from "../lib/auth";
 import { fetchWalletSummary } from "../lib/wallet";
 import { navigateTo } from "../lib/navigation";
+
+const formatDateTime = (value) =>
+  value
+    ? new Date(value).toLocaleString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : "--";
 
 export default function RiderWalletPage() {
   const [currentUser] = useState(() => getCurrentUserFromStorage());
@@ -16,13 +27,13 @@ export default function RiderWalletPage() {
     },
   });
 
-  useEffect(() => {
-    if (!currentUser) {
-      navigateTo("/login");
-      return;
-    }
+  // Client-Side UX Interactive States (No Backend Changes)
+  const [filterType, setFilterType] = useState("ALL"); // ALL | EARNING | WITHDRAWAL
+  const [searchQuery, setSearchQuery] = useState("");
+  const [expandedTxId, setExpandedTxId] = useState(null);
 
-    if (currentUser.role !== "RIDER") {
+  useEffect(() => {
+    if (!currentUser || currentUser.role !== "RIDER") {
       navigateTo("/login");
       return;
     }
@@ -55,42 +66,69 @@ export default function RiderWalletPage() {
     loadWallet();
   }, [currentUser]);
 
+  // Client-Side Advanced Data Filter Engine
+  const filteredTransactions = useMemo(() => {
+    const txs = state.wallet?.transactions || [];
+    return txs.filter((tx) => {
+      // 1. Filter Type Categorization
+      if (filterType === "EARNING" && tx.type !== "EARNING" && tx.amount < 0) return false;
+      if (filterType === "WITHDRAWAL" && tx.type !== "WITHDRAWAL" && tx.amount >= 0) return false;
+
+      // 2. Search Query Matching
+      const idMatch = (tx.id || "").toLowerCase().includes(searchQuery.toLowerCase());
+      const descMatch = (tx.description || "").toLowerCase().includes(searchQuery.toLowerCase());
+      const referenceMatch = (tx.reference || "").toLowerCase().includes(searchQuery.toLowerCase());
+
+      return idMatch || descMatch || referenceMatch;
+    });
+  }, [state.wallet?.transactions, filterType, searchQuery]);
+
+  const toggleExpandTx = (txId) => {
+    setExpandedTxId((prev) => (prev === txId ? null : txId));
+  };
+
   return (
     <div className="min-h-screen bg-background text-on-background font-body-md antialiased">
       <Navbar />
       <main className="mx-auto max-w-6xl px-6 py-10">
+        
+        {/* Grounded Header Section */}
         <section className="overflow-hidden rounded-[2.5rem] border border-[#e6ebda] bg-[linear-gradient(135deg,#eef7ff_0%,#f5fbff_48%,#fff9ef_100%)] p-8 shadow-level-2">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#6c7d69]">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#d2e4f1] bg-[#f0f7fc] px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#1d6fa5]">
+                <span className="material-symbols-outlined text-[14px]">account_balance_wallet</span>
                 Rider Wallet
-              </p>
-              <h1 className="mt-2 font-display text-[clamp(2rem,3vw,2.8rem)] leading-tight text-[#1d3720]">
-                Delivery earnings and bank withdrawals
+              </div>
+              <h1 className="mt-2 font-display text-[clamp(2rem,3vw,2.8rem)] leading-tight font-extrabold text-[#1d3720]">
+                Rider Earnings
               </h1>
               <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[#53604a]">
-                Every completed delivery adds the delivery fee into your wallet, and you can send your balance to your bank account from this page.
+                Every completed delivery adds the delivery fee into your wallet. You can review payouts, trace transaction distributions, and execute bank withdrawals instantly.
               </p>
             </div>
           </div>
         </section>
 
         {state.error && (
-          <div className="mt-6 rounded-2xl border border-red-100 bg-red-50 px-5 py-4 text-sm text-red-700">
+          <div className="mt-6 rounded-2xl border border-red-100 bg-red-50 px-5 py-4 text-sm text-red-700 shadow-sm flex items-center gap-2">
+            <span className="material-symbols-outlined text-md">error</span>
             {state.error}
           </div>
         )}
 
         {state.loading ? (
-          <div className="mt-8 rounded-[2rem] border border-[#e7eddc] bg-white p-10 text-center shadow-level-1">
-            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-primary/25 border-t-primary" />
-            <p className="mt-4 text-sm font-medium text-[#53604a]">Loading wallet balance...</p>
+          <div className="mt-8 rounded-[2rem] border border-[#e7eddc] bg-white p-12 text-center shadow-level-1">
+            <div className="mx-auto h-7 w-7 animate-spin rounded-full border-2 border-primary/25 border-t-primary" />
+            <p className="mt-4 text-sm font-medium text-[#53604a]">Loading wallet balance metadata...</p>
           </div>
         ) : (
-          <div className="mt-8">
+          <div className="mt-8 space-y-8">
+            
+            {/* Primary Interactive Wallet Component Block */}
             <WalletPanel
-              title="Rider Wallet"
-              subtitle="Completed deliveries add to this balance automatically, and you can transfer your earnings to your bank account from this page."
+              title="Rider Wallet Balance"
+              subtitle="Completed deliveries add to this balance automatically. You can transfer your earnings securely to your bank account."
               wallet={state.wallet}
               onWalletUpdated={(wallet) =>
                 setState((current) => ({
@@ -100,6 +138,130 @@ export default function RiderWalletPage() {
               }
               accentClassName="bg-[#eef7ff] text-[#1d77d4] border-[#d9e8f3]"
             />
+
+            {/* Interactive Transaction Logger Panel */}
+            <section className="rounded-[2rem] border border-[#e7eddc] bg-white overflow-hidden shadow-level-1">
+              
+              {/* Filter controls and searching fields headers */}
+              <div className="flex flex-col gap-4 border-b border-[#edf3e4] bg-[#fbfdf8] px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h2 className="text-base font-bold text-[#1d3720]">Statement & Statement Log</h2>
+                  <p className="text-xs text-[#71806c]">Filter or check incoming job deposits and external banking cashouts.</p>
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  {/* Category Pill Filters */}
+                  <div className="inline-flex rounded-xl bg-gray-100/80 p-1 text-xs font-semibold">
+                    {["ALL", "EARNING", "WITHDRAWAL"].map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => setFilterType(type)}
+                        className={`rounded-lg px-3 py-1.5 transition capitalize ${
+                          filterType === type 
+                            ? "bg-white text-[#1d3720] shadow-sm" 
+                            : "text-gray-500 hover:text-gray-900"
+                        }`}
+                      >
+                        {type.toLowerCase()}s
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Micro-search filter engine input */}
+                  <div className="relative w-full sm:w-64">
+                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-base">search</span>
+                    <input
+                      type="text"
+                      placeholder="Search description, reference..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full rounded-xl border border-[#dce3d5] bg-white py-1.5 pl-9 pr-4 text-xs outline-none transition focus:border-[#a3b899] focus:ring-2 focus:ring-[#eef7df]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Transactions Map Stream */}
+              {filteredTransactions.length === 0 ? (
+                <div className="p-12 text-center text-sm text-[#5f6d5b]">
+                  <span className="material-symbols-outlined text-4xl text-[#a0af9b] mb-2 block font-light">receipt_long</span>
+                  No matching ledger transactions found.
+                </div>
+              ) : (
+                <div className="divide-y divide-[#edf3e4]">
+                  {filteredTransactions.map((tx) => {
+                    const isExpanded = expandedTxId === tx.id;
+                    const isEarning = tx.type === "EARNING" || tx.amount >= 0;
+
+                    return (
+                      <article 
+                        key={tx.id}
+                        onClick={() => toggleExpandTx(tx.id)}
+                        className={`transition duration-150 cursor-pointer ${isExpanded ? "bg-[#f8fbf4]" : "hover:bg-gray-50/60"}`}
+                      >
+                        {/* Transaction Abstract Row */}
+                        <div className="flex items-center justify-between px-6 py-4">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-md font-bold ${
+                              isEarning ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-amber-50 text-amber-700 border border-amber-100"
+                            }`}>
+                              <span className="material-symbols-outlined">
+                                {isEarning ? "south_west" : "north_east"}
+                              </span>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-[#1d3720] truncate">{tx.description || (isEarning ? "Delivery Payout Credit" : "Bank Transfer Withdrawal")}</p>
+                              <p className="text-[11px] text-[#72806b] mt-0.5">{formatDateTime(tx.createdAt)}</p>
+                            </div>
+                          </div>
+
+                          <div className="text-right pl-4">
+                            <p className={`text-sm font-bold ${isEarning ? "text-emerald-700" : "text-gray-900"}`}>
+                              {isEarning ? "+" : ""}{tx.formatted || `RM ${(tx.amount / 100).toFixed(2)}`}
+                            </p>
+                            <span className="text-[10px] font-medium text-gray-400 block tracking-tight">
+                              ID: #{String(tx.id).slice(-6).toUpperCase()}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Interactive Click Dropdown Details Container */}
+                        {isExpanded && (
+                          <div 
+                            className="px-6 pb-4 pt-1 border-t border-dashed border-gray-100 bg-[#fbfdf9]/50"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="rounded-xl border border-gray-200/60 bg-white p-4 shadow-inner text-xs text-[#425040] space-y-2">
+                              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                <div>
+                                  <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wide">Tracking Reference</span>
+                                  <p className="font-mono text-gray-700 font-medium mt-0.5">{tx.reference || tx.id || "--"}</p>
+                                </div>
+                                <div>
+                                  <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wide">Ledger Event</span>
+                                  <p className="font-semibold text-gray-700 mt-0.5">{isEarning ? "Order Cargo Delivery" : "Electronic Clearing"}</p>
+                                </div>
+                                <div>
+                                  <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wide">Settlement Status</span>
+                                  <p className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 mt-0.5">
+                                    <span className="h-1 w-1 rounded-full bg-emerald-500" /> Reconciled
+                                  </p>
+                                </div>
+                                <div>
+                                  <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wide">Method</span>
+                                  <p className="font-medium text-gray-700 mt-0.5">{isEarning ? "Wallet Ingress API" : "Instant FPX Payout"}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
           </div>
         )}
       </main>

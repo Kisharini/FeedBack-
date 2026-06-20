@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-
 }
 
 enum Role {
@@ -71,74 +70,76 @@ enum NotificationType {
 }
 
 model User {
-  id                        String         @id @default(cuid())
-  name                      String
-  email                     String         @unique
-  password                  String
-  role                      Role
-  approvalStatus            ApprovalStatus @default(APPROVED)
-  ngoOrganizationName       String?
-  ngoRegistrationNumber     String?
-  ngoContactPhone           String?
-  ngoAddress                String?
-  ngoDescription            String?
-  ngoSsmDocumentUrl         String?
-  ngoSsmDocumentPublicId String?
-  ngoSupportingDocUrls      String[]
-  ngoSupportingDocPublicIds String[]
-  vendorBusinessName        String?
-  vendorRegistrationNumber  String?
-  vendorPlaceAddress        String?
-  vendorContactPhone        String?
-  vendorDescription         String?
-  vendorSsmDocumentUrl      String?
-  vendorSsmDocumentPublicId String?
-  riderLicenseNumber        String?
-  riderPhoneNumber          String?
-  riderVehicleType          String?
-  riderVehicleName          String?
-  riderVehiclePlateNumber   String?
-  riderVehicleColor         String?
-  riderAddress              String?
-  riderNotes                String?
-  riderLicenseDocumentUrl   String?
+  id                           String              @id @default(cuid())
+  name                         String
+  email                        String              @unique
+  password                     String
+  role                         Role
+  approvalStatus               ApprovalStatus      @default(APPROVED)
+  ngoOrganizationName          String?
+  ngoRegistrationNumber        String?
+  ngoContactPhone              String?
+  ngoAddress                   String?
+  ngoDescription               String?
+  ngoSsmDocumentUrl            String?
+  ngoSsmDocumentPublicId       String?
+  ngoSupportingDocUrls         String[]
+  ngoSupportingDocPublicIds    String[]
+  vendorBusinessName           String?
+  vendorRegistrationNumber     String?
+  vendorPlaceAddress           String?
+  vendorContactPhone           String?
+  vendorDescription            String?
+  vendorSsmDocumentUrl         String?
+  vendorSsmDocumentPublicId    String?
+  riderLicenseNumber           String?
+  riderPhoneNumber             String?
+  riderVehicleType             String?
+  riderVehicleName             String?
+  riderVehiclePlateNumber      String?
+  riderVehicleColor            String?
+  riderAddress                 String?
+  riderNotes                   String?
+  riderLicenseDocumentUrl      String?
   riderLicenseDocumentPublicId String?
-  riderVehicleGrantUrl      String?
-  riderVehicleGrantPublicId String?
-  approvalNotes             String?
-  walletBalance             Int            @default(0)
-  approvedAt                DateTime?
-  createdAt                 DateTime       @default(now())
-  updatedAt                 DateTime       @updatedAt
-  listings                  Listing[]      @relation("VendorListings")
-  claimedListings           Listing[]      @relation("ClaimedListings")
-  orders                    Order[]        @relation("CustomerOrders")
-  riderOrders               Order[]        @relation("AssignedRiderOrders")
-  walletTransactions        WalletTransaction[]
-  notifications             Notification[]
+  riderVehicleGrantUrl         String?
+  riderVehicleGrantPublicId    String?
+  approvalNotes                String?
+  walletBalance                Int                 @default(0)
+  approvedAt                   DateTime?
+  createdAt                    DateTime            @default(now())
+  updatedAt                    DateTime            @updatedAt
+  listings                     Listing[]           @relation("VendorListings")
+  claimedListings              Listing[]           @relation("ClaimedListings")
+  orders                       Order[]             @relation("CustomerOrders")
+  riderOrders                  Order[]             @relation("AssignedRiderOrders")
+  walletTransactions           WalletTransaction[]
+  notifications                Notification[]
 
   @@map("users")
 }
 
 model Listing {
-  id          String @id @default(cuid())
-  title       String
-  description String
-  type        ListingType
-  quantity    Int
-  unitPrice   Int?
-  expiryAt    DateTime
-  location    String
-  imageUrl    String?
-  status      ListingStatus @default(AVAILABLE)
-  vendorId    String
-  claimedById String?
-  claimedAt   DateTime?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  vendor      User          @relation("VendorListings", fields: [vendorId], references: [id])
-  claimedBy   User?         @relation("ClaimedListings", fields: [claimedById], references: [id])
-  orderItems  OrderItem[]
+  id              String        @id @default(cuid())
+  title           String
+  description     String
+  type            ListingType
+  quantity        Int
+  unitPrice       Int?
+  expiryAt        DateTime
+  location        String
+  pickupLatitude  Float?
+  pickupLongitude Float?
+  imageUrl        String?
+  status          ListingStatus @default(AVAILABLE)
+  vendorId        String
+  claimedById     String?
+  claimedAt       DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  vendor          User          @relation("VendorListings", fields: [vendorId], references: [id])
+  claimedBy       User?         @relation("ClaimedListings", fields: [claimedById], references: [id])
+  orderItems      OrderItem[]
 
   @@index([type])
   @@index([status])
@@ -150,33 +151,35 @@ model Listing {
 }
 
 model Order {
-  id                  String         @id @default(cuid())
-  customerId          String
-  riderId             String?
-  deliveryOption      DeliveryOption
-  paymentMethod       PaymentMethod
-  status              OrderStatus
-  subtotalAmount      Int
-  deliveryFeeAmount   Int
-  totalAmount         Int
-  deliveryAddress     String?
-  pickupInstructions  String?
-  riderName           String?
-  riderPhoneNumber    String?
-  riderVehicle        String?
-  riderPlateNumber    String?
-  trackingLatitude    Float?
-  trackingLongitude   Float?
-  trackingMessage     String?
-  paidAt              DateTime
-  deliveredAt         DateTime?
-  completedAt         DateTime?
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
-  customer            User           @relation("CustomerOrders", fields: [customerId], references: [id])
-  rider               User?          @relation("AssignedRiderOrders", fields: [riderId], references: [id])
-  items               OrderItem[]
-  walletTransactions  WalletTransaction[]
+  id                 String              @id @default(cuid())
+  customerId         String
+  riderId            String?
+  deliveryOption     DeliveryOption
+  paymentMethod      PaymentMethod
+  status             OrderStatus
+  subtotalAmount     Int
+  deliveryFeeAmount  Int
+  totalAmount        Int
+  deliveryAddress    String?
+  deliveryLatitude   Float?
+  deliveryLongitude  Float?
+  pickupInstructions String?
+  riderName          String?
+  riderPhoneNumber   String?
+  riderVehicle       String?
+  riderPlateNumber   String?
+  trackingLatitude   Float?
+  trackingLongitude  Float?
+  trackingMessage    String?
+  paidAt             DateTime
+  deliveredAt        DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  customer           User                @relation("CustomerOrders", fields: [customerId], references: [id])
+  rider              User?               @relation("AssignedRiderOrders", fields: [riderId], references: [id])
+  items              OrderItem[]
+  walletTransactions WalletTransaction[]
 
   @@index([customerId])
   @@index([riderId])
@@ -185,18 +188,18 @@ model Order {
 }
 
 model OrderItem {
-  id             String   @id @default(cuid())
-  orderId        String
-  listingId      String
-  titleSnapshot  String
-  listingType    ListingType
-  quantity       Int
-  unitPrice      Int
-  lineTotal      Int
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  order          Order    @relation(fields: [orderId], references: [id])
-  listing        Listing  @relation(fields: [listingId], references: [id])
+  id            String      @id @default(cuid())
+  orderId       String
+  listingId     String
+  titleSnapshot String
+  listingType   ListingType
+  quantity      Int
+  unitPrice     Int
+  lineTotal     Int
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  order         Order       @relation(fields: [orderId], references: [id])
+  listing       Listing     @relation(fields: [listingId], references: [id])
 
   @@index([orderId])
   @@index([listingId])

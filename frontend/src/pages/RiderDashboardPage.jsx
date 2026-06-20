@@ -52,6 +52,27 @@ const getPickupAddress = (job) =>
   job?.items?.[0]?.pickupLocation || job?.vendor?.address || "Pickup location unavailable";
 
 const getDropoffAddress = (job) => job?.deliveryAddress || "Delivery address unavailable";
+const getPickupCoordinatesFromJob = (job) =>
+  typeof job?.items?.[0]?.pickupLatitude === "number" &&
+  typeof job?.items?.[0]?.pickupLongitude === "number"
+    ? {
+        latitude: job.items[0].pickupLatitude,
+        longitude: job.items[0].pickupLongitude,
+      }
+    : typeof job?.vendor?.pickupLatitude === "number" && typeof job?.vendor?.pickupLongitude === "number"
+      ? {
+          latitude: job.vendor.pickupLatitude,
+          longitude: job.vendor.pickupLongitude,
+        }
+      : null;
+
+const getDropoffCoordinatesFromJob = (job) =>
+  typeof job?.deliveryLatitude === "number" && typeof job?.deliveryLongitude === "number"
+    ? {
+        latitude: job.deliveryLatitude,
+        longitude: job.deliveryLongitude,
+      }
+    : null;
 
 const statusAction = {
   RIDER_ASSIGNED: {
@@ -82,9 +103,7 @@ export default function RiderDashboardPage() {
   const isRiderUser = currentUser?.role === "RIDER";
 
   const loadDashboard = async () => {
-    if (!isRiderUser) {
-      return;
-    }
+    if (!isRiderUser) return;
 
     setState((current) => ({ ...current, loading: true, error: "" }));
 
@@ -117,16 +136,10 @@ export default function RiderDashboardPage() {
   };
 
   useEffect(() => {
-    if (!currentUser) {
+    if (!currentUser || !isRiderUser) {
       navigateTo("/login");
       return;
     }
-
-    if (!isRiderUser) {
-      navigateTo("/login");
-      return;
-    }
-
     loadDashboard();
   }, [currentUser, isRiderUser]);
 
@@ -152,9 +165,7 @@ export default function RiderDashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (!isRiderUser) {
-      return undefined;
-    }
+    if (!isRiderUser) return undefined;
 
     const intervalId = window.setInterval(() => {
       loadDashboard();
@@ -164,9 +175,7 @@ export default function RiderDashboardPage() {
   }, [isRiderUser]);
 
   useEffect(() => {
-    if (!isRiderUser || !state.activeJob) {
-      return undefined;
-    }
+    if (!isRiderUser || !state.activeJob) return undefined;
 
     const syncLocation = async () => {
       try {
@@ -196,9 +205,18 @@ export default function RiderDashboardPage() {
     }
 
     const loadStops = async () => {
+      const savedPickup = getPickupCoordinatesFromJob(state.activeJob);
+      const savedDropoff = getDropoffCoordinatesFromJob(state.activeJob);
+
+      if (savedPickup && savedDropoff) {
+        setPickupCoordinates(savedPickup);
+        setDropoffCoordinates(savedDropoff);
+        return;
+      }
+
       const [pickup, dropoff] = await Promise.all([
-        geocodeAddress(getPickupAddress(state.activeJob)),
-        geocodeAddress(getDropoffAddress(state.activeJob)),
+        savedPickup || geocodeAddress(getPickupAddress(state.activeJob)),
+        savedDropoff || geocodeAddress(getDropoffAddress(state.activeJob)),
       ]);
 
       if (!cancelled) {
@@ -234,8 +252,7 @@ export default function RiderDashboardPage() {
         return;
       }
 
-      const destination =
-        state.activeJob.status === "RIDER_ASSIGNED" ? pickupCoordinates : dropoffCoordinates;
+      const destination = state.activeJob.status === "RIDER_ASSIGNED" ? pickupCoordinates : dropoffCoordinates;
       const route = await fetchDrivingRoute(liveRiderCoordinates, destination);
 
       if (!cancelled) {
@@ -251,10 +268,10 @@ export default function RiderDashboardPage() {
 
   const activeAction = statusAction[state.activeJob?.status];
   const deliveryPhaseLabel = useMemo(() => {
-    if (!state.activeJob) return "Finding your next job";
-    if (state.activeJob.status === "RIDER_ASSIGNED") return "Route to pickup";
-    if (state.activeJob.status === "OUT_FOR_DELIVERY") return "Route to customer";
-    if (state.activeJob.status === "DELIVERED") return "Waiting for customer confirmation";
+    if (!state.activeJob) return "Searching";
+    if (state.activeJob.status === "RIDER_ASSIGNED") return "Route to Pickup";
+    if (state.activeJob.status === "OUT_FOR_DELIVERY") return "Route to Customer";
+    if (state.activeJob.status === "DELIVERED") return "Waiting for Confirmation";
     return statusCopy[state.activeJob.status] || state.activeJob.status;
   }, [state.activeJob]);
 
@@ -282,9 +299,7 @@ export default function RiderDashboardPage() {
   };
 
   const handleAdvanceStatus = async () => {
-    if (!state.activeJob || !activeAction) {
-      return;
-    }
+    if (!state.activeJob || !activeAction) return;
 
     try {
       setState((current) => ({ ...current, busy: true, error: "" }));
@@ -312,22 +327,39 @@ export default function RiderDashboardPage() {
     <div className="min-h-screen bg-background text-on-background font-body-md antialiased">
       <Navbar />
       <main className="mx-auto max-w-7xl px-6 py-10">
+        
+        {/* Grounded and Normalized Rider Header Section */}
         <section className="overflow-hidden rounded-[2.5rem] border border-[#e6ebda] bg-[linear-gradient(135deg,#fff9ef_0%,#f5fbe9_48%,#eef7ff_100%)] p-8 shadow-level-2">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#6c7d69]">
-                Rider Dispatch
-              </p>
-              <h1 className="mt-2 font-display text-[clamp(2rem,3vw,2.8rem)] leading-tight text-[#1d3720]">
-                Finding and handling your next delivery run
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#d8e6cf] bg-[#f4faea] px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#2d5b2f]">
+                <span className="material-symbols-outlined text-[14px]">sports_motorsports</span>
+                Delivery Network
+              </div>
+              <h1 className="font-display text-[clamp(2rem,3vw,2.6rem)] font-extrabold leading-tight text-[#1d3720]">
+                Rider Portal
               </h1>
-              <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[#53604a]">
-                Stay online to receive nearby delivery jobs, then choose whether to accept them before starting pickup and drop-off routing.
+              <p className="max-w-2xl text-sm leading-relaxed text-[#53604a]">
+                View your active job status, plan your drop-off routes, or accept new nearby delivery offers in real time.
               </p>
             </div>
-            <div className="rounded-2xl border border-white/70 bg-white/70 px-5 py-4 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wide text-[#70816c]">Current Rider</p>
-              <p className="mt-1 text-xl font-bold text-[#1d3720]">{currentUser?.name}</p>
+            
+            {/* Standardized Rider Profile Box */}
+            <div className="flex items-center gap-4 min-w-[260px] rounded-2xl border border-white/80 bg-white/60 p-4 backdrop-blur-md shadow-sm">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <span className="material-symbols-outlined text-2xl">sports_motorsports</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-[#70816c] uppercase tracking-wider">Rider Profile</p>
+                <p className="truncate font-display text-lg font-bold text-[#1d3720]">{currentUser?.name || "Driver"}</p>
+                <div className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-[#16a34a]">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                  </span>
+                  Active
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -359,7 +391,7 @@ export default function RiderDashboardPage() {
                       Active Delivery
                     </p>
                     <h2 className="mt-1 text-2xl font-bold text-[#1d3720]">
-                      {state.activeJob ? `Order #${state.activeJob.id.slice(-8).toUpperCase()}` : "Searching for your next job"}
+                      {state.activeJob ? `Order #${state.activeJob.id.slice(-8).toUpperCase()}` : "Searching for Delivery Task"}
                     </h2>
                   </div>
                   <span className="rounded-full border border-[#d8e6cf] bg-[#f4faea] px-3 py-1 text-xs font-bold text-[#2d5b2f]">
@@ -387,7 +419,7 @@ export default function RiderDashboardPage() {
                     <div className="grid gap-4 md:grid-cols-3">
                       <MetricCard label="Status" value={statusCopy[state.activeJob.status] || state.activeJob.status} />
                       <MetricCard label="Order Value" value={formatMoney(state.activeJob.totalAmount)} />
-                      <MetricCard label="Items" value={`${state.activeJob.items.length} stop item${state.activeJob.items.length === 1 ? "" : "s"}`} />
+                      <MetricCard label="Items" value={`${state.activeJob.items?.length || 0} item${state.activeJob.items?.length === 1 ? "" : "s"}`} />
                     </div>
 
                     <div className="overflow-hidden rounded-2xl border border-[#d9e8f3] bg-[#f5fbff]">
@@ -401,7 +433,7 @@ export default function RiderDashboardPage() {
                           riderCoordinates={
                             state.activeJob.tracking?.latitude && state.activeJob.tracking?.longitude
                               ? [state.activeJob.tracking.latitude, state.activeJob.tracking.longitude]
-                              : null
+                              : deviceLocation ? [deviceLocation.latitude, deviceLocation.longitude] : null
                           }
                           pickupCoordinates={pickupCoordinates}
                           dropoffCoordinates={dropoffCoordinates}
@@ -445,7 +477,7 @@ export default function RiderDashboardPage() {
                   <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#71806c]">
                     Job Offers Nearby
                   </p>
-                  <h2 className="mt-1 text-2xl font-bold text-[#1d3720]">{visibleJobs.length} to review</h2>
+                  <h2 className="mt-1 text-2xl font-bold text-[#1d3720]"> {visibleJobs.length} to review</h2>
                 </div>
                 <button
                   type="button"
@@ -486,7 +518,7 @@ export default function RiderDashboardPage() {
                       <div className="mt-4 space-y-2 text-xs text-[#5f6d5b]">
                         <p><span className="font-semibold text-[#1d3720]">Pickup:</span> {getPickupAddress(job)}</p>
                         <p><span className="font-semibold text-[#1d3720]">Drop-off:</span> {getDropoffAddress(job)}</p>
-                        <p><span className="font-semibold text-[#1d3720]">Items:</span> {job.items.map((item) => `${item.title} x${item.quantity}`).join(", ")}</p>
+                        <p><span className="font-semibold text-[#1d3720]">Items:</span> {job.items?.map((item) => `${item.title} x${item.quantity}`).join(", ") || "No item description"}</p>
                       </div>
                       <div className="mt-4 grid gap-2 sm:grid-cols-2">
                         <button
@@ -495,7 +527,7 @@ export default function RiderDashboardPage() {
                           disabled={state.busy || !!state.activeJob}
                           className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#f59b27] disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          {state.activeJob ? "Complete current delivery first" : state.busy ? "Accepting..." : "Accept Job"}
+                          {state.activeJob ? "Complete active job first" : state.busy ? "Accepting..." : "Accept Job"}
                         </button>
                         <button
                           type="button"
@@ -532,7 +564,7 @@ function FindingJobsPanel({ jobCount }) {
             </div>
           </div>
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#587389]">Dispatch Search Live</p>
-          <h3 className="mt-2 text-2xl font-bold text-[#1d3720]">Finding jobs near your location</h3>
+          <h3 className="mt-2 text-2xl font-bold text-[#1d3720]">Finding Delivery Near Your Location</h3>
           <p className="mt-3 max-w-lg text-sm leading-relaxed text-[#5a7c94]">
             Stay on this screen while the dispatch queue refreshes. New jobs will appear on the right for you to accept or skip.
           </p>
@@ -569,11 +601,13 @@ function MetricCard({ label, value }) {
 }
 
 function RiderMap({ riderCoordinates, pickupCoordinates, dropoffCoordinates, routePoints }) {
-  const points = [
-    riderCoordinates,
-    pickupCoordinates ? [pickupCoordinates.latitude, pickupCoordinates.longitude] : null,
-    dropoffCoordinates ? [dropoffCoordinates.latitude, dropoffCoordinates.longitude] : null,
-  ].filter(Boolean);
+  const points = useMemo(() => {
+    return [
+      riderCoordinates,
+      pickupCoordinates ? [pickupCoordinates.latitude, pickupCoordinates.longitude] : null,
+      dropoffCoordinates ? [dropoffCoordinates.latitude, dropoffCoordinates.longitude] : null,
+    ].filter((p) => p && p[0] !== undefined && p[1] !== undefined);
+  }, [riderCoordinates, pickupCoordinates, dropoffCoordinates]);
 
   return (
     <MapContainer
@@ -626,9 +660,7 @@ function FitMapBounds({ points }) {
   const map = useMap();
 
   useEffect(() => {
-    if (!map || points.length === 0) {
-      return;
-    }
+    if (!map || points.length === 0) return;
 
     map.fitBounds(points, {
       padding: [40, 40],

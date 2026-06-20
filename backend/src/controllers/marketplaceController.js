@@ -4,6 +4,7 @@ const asyncHandler = require("../utils/asyncHandler");
 const ApiError = require("../utils/apiError");
 const { notifyClaimCreated } = require("../services/notificationService");
 const { creditCompletedOrderWallets } = require("../services/walletService");
+const { matchFoodListings } = require("../utils/matchingEngine");
 
 const ROLE_TO_LISTING_TYPE = {
   INDIVIDUAL: "DISCOUNTED",
@@ -13,6 +14,41 @@ const ROLE_TO_LISTING_TYPE = {
 const DELIVERY_FEE_AMOUNT = 800;
 const PICKUP_INSTRUCTIONS =
   "Bring your order confirmation, arrive within 30 minutes of readiness, and show the order id to the vendor.";
+
+const MOCK_RIDER = {
+  riderName: "Aiman Rider",
+  riderPhoneNumber: "+60 12-555 7821",
+  riderVehicle: "Yamaha Y15ZR",
+  riderPlateNumber: "WXY 4821",
+};
+
+const TRACKING_STEPS = {
+  FINDING_RIDER: {
+    status: "RIDER_ASSIGNED",
+    trackingLatitude: 3.139,
+    trackingLongitude: 101.6869,
+    trackingMessage: "A nearby rider has accepted your order and is heading to the vendor.",
+    ...MOCK_RIDER,
+  },
+  RIDER_ASSIGNED: {
+    status: "OUT_FOR_DELIVERY",
+    trackingLatitude: 3.1455,
+    trackingLongitude: 101.6952,
+    trackingMessage: "Your rider has collected the order and is on the way.",
+  },
+  OUT_FOR_DELIVERY: {
+    status: "DELIVERED",
+    trackingLatitude: 3.1512,
+    trackingLongitude: 101.7015,
+    trackingMessage: "The rider has arrived at your drop-off point.",
+  },
+  DELIVERED: {
+    status: "COMPLETED",
+    trackingLatitude: 3.1512,
+    trackingLongitude: 101.7015,
+    trackingMessage: "Order completed successfully.",
+  },
+};
 
 const buildListingAccess = (role) => {
   const allowedType = ROLE_TO_LISTING_TYPE[role];
@@ -41,10 +77,14 @@ const mapListing = (listing) => ({
   quantity: listing.quantity,
   expiryAt: listing.expiryAt,
   location: listing.location,
+  pickupLatitude: listing.pickupLatitude,
+  pickupLongitude: listing.pickupLongitude,
   imageUrl: listing.imageUrl,
   status: listing.status,
   unitPrice: listing.type === "DISCOUNTED" ? toMoney(listing.unitPrice || 0) : toMoney(0),
   accessRole: listing.type === "DISCOUNTED" ? "INDIVIDUAL" : "NGO",
+  matchScore: listing.matchScore,
+  distanceKM: listing.distanceKM ?? null,
   vendor: {
     id: listing.vendor.id,
     name: listing.vendor.name,
@@ -64,6 +104,8 @@ const mapOrder = (order) => ({
   deliveryFeeAmount: toMoney(order.deliveryFeeAmount),
   totalAmount: toMoney(order.totalAmount),
   deliveryAddress: order.deliveryAddress,
+  deliveryLatitude: order.deliveryLatitude,
+  deliveryLongitude: order.deliveryLongitude,
   pickupInstructions: order.pickupInstructions,
   rider: order.riderName
     ? {
@@ -103,6 +145,8 @@ const mapOrder = (order) => ({
     listing: item.listing
       ? {
           location: item.listing.location,
+          pickupLatitude: item.listing.pickupLatitude,
+          pickupLongitude: item.listing.pickupLongitude,
           imageUrl: item.listing.imageUrl,
           expiryAt: item.listing.expiryAt,
         }
@@ -184,12 +228,23 @@ const listListings = asyncHandler(async (req, res) => {
     ],
   });
 
+  const userPreferences = {
+    userLocationText: req.validated.query.location || "",
+    neededQuantity: req.validated.query.neededQuantity
+      ? parseInt(req.validated.query.neededQuantity, 10)
+      : 1,
+    userRole: req.user.role,
+    preferredTypes: req.validated.query.search ? [req.validated.query.search] : [],
+  };
+
+  const scoredRawListings = matchFoodListings(userPreferences, listings);
+
   return res.status(StatusCodes.OK).json({
     success: true,
     message: "Listings fetched successfully",
     data: {
       audience: req.user.role,
-      listings: listings.map(mapListing),
+      listings: scoredRawListings.map(mapListing),
     },
   });
 });
@@ -232,7 +287,14 @@ const getListingById = asyncHandler(async (req, res) => {
 
 const createOrder = asyncHandler(async (req, res) => {
   const allowedType = buildListingAccess(req.user.role);
-  const { items, deliveryOption, paymentMethod, deliveryAddress } = req.validated.body;
+  const {
+    items,
+    deliveryOption,
+    paymentMethod,
+    deliveryAddress,
+    deliveryLatitude,
+    deliveryLongitude,
+  } = req.validated.body;
   const listingIds = [...new Set(items.map((item) => item.listingId))];
   const quantityMap = new Map(items.map((item) => [item.listingId, item.quantity]));
 
@@ -312,6 +374,8 @@ const createOrder = asyncHandler(async (req, res) => {
         deliveryFeeAmount,
         totalAmount,
         deliveryAddress: deliveryOption === "DELIVERY" ? deliveryAddress : null,
+        deliveryLatitude: deliveryOption === "DELIVERY" ? deliveryLatitude ?? null : null,
+        deliveryLongitude: deliveryOption === "DELIVERY" ? deliveryLongitude ?? null : null,
         pickupInstructions: deliveryOption === "SELF_PICKUP" ? PICKUP_INSTRUCTIONS : null,
         trackingMessage,
         paidAt: now,
@@ -527,6 +591,84 @@ const confirmSelfPickupOrder = asyncHandler(async (req, res) => {
   });
 });
 
+const advanceMockOrderStatus = asyncHandler(async (req, res) => {
+  buildListingAccess(req.user.role);
+
+  const order = await prisma.order.findFirst({
+    where: {
+      id: req.validated.params.orderId,
+      customerId: req.user.id,
+    },
+  });
+
+  if (!order) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Order not found");
+  }
+
+  let nextState;
+  let extraData = {};
+
+  if (order.deliveryOption === "SELF_PICKUP") {
+    if (order.status === "COMPLETED") {
+      throw new ApiError(StatusCodes.BAD_REQUEST, "This order is already completed");
+    }
+
+    nextState = "COMPLETED";
+    extraData = {
+      completedAt: new Date(),
+      deliveredAt: new Date(),
+      trackingMessage: "Pickup confirmed. Thank you for completing the order.",
+    };
+  } else {
+    const progression = TRACKING_STEPS[order.status];
+
+    if (!progression) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "This delivery order can no longer advance to another mocked status"
+      );
+    }
+
+    nextState = progression.status;
+    extraData = {
+      riderName: progression.riderName ?? order.riderName,
+      riderPhoneNumber: progression.riderPhoneNumber ?? order.riderPhoneNumber,
+      riderVehicle: progression.riderVehicle ?? order.riderVehicle,
+      riderPlateNumber: progression.riderPlateNumber ?? order.riderPlateNumber,
+      trackingLatitude: progression.trackingLatitude,
+      trackingLongitude: progression.trackingLongitude,
+      trackingMessage: progression.trackingMessage,
+      deliveredAt: progression.status === "DELIVERED" ? new Date() : order.deliveredAt,
+      completedAt: progression.status === "COMPLETED" ? new Date() : order.completedAt,
+    };
+  }
+
+  const updatedOrder = await prisma.order.update({
+    where: {
+      id: order.id,
+    },
+    data: {
+      status: nextState,
+      ...extraData,
+    },
+    include: {
+      items: {
+        include: {
+          listing: true,
+        },
+      },
+    },
+  });
+
+  return res.status(StatusCodes.OK).json({
+    success: true,
+    message: "Order status updated successfully",
+    data: {
+      order: mapOrder(updatedOrder),
+    },
+  });
+});
+
 module.exports = {
   listListings,
   getListingById,
@@ -534,4 +676,5 @@ module.exports = {
   listOrders,
   getOrderById,
   confirmSelfPickupOrder,
+  advanceMockOrderStatus,
 };

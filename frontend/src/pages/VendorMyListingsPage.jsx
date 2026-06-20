@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import AddressAutocompleteField from "../components/AddressAutocompleteField";
 import Navbar from "../components/Navbar";
 import { getCurrentUserFromStorage } from "../lib/auth";
 import { apiRequest } from "../lib/api";
@@ -35,6 +36,19 @@ const statusTone = {
   EXPIRED: "bg-slate-100 text-slate-600 border-slate-200",
 };
 
+const INITIAL_FORM_STATE = {
+  title: "",
+  description: "",
+  type: "DISCOUNTED",
+  quantity: "1",
+  unitPrice: "",
+  location: "",
+  pickupLatitude: "",
+  pickupLongitude: "",
+  expiryAt: "",
+  imageUrl: "",
+};
+
 function buildListingPayload(formData, listingImageFile) {
   const payload = new FormData();
   payload.append("title", formData.title.trim());
@@ -46,6 +60,8 @@ function buildListingPayload(formData, listingImageFile) {
     String(formData.type === "DISCOUNTED" ? Math.round(Number(formData.unitPrice) * 100) : 0)
   );
   payload.append("location", formData.location.trim());
+  payload.append("pickupLatitude", formData.pickupLatitude);
+  payload.append("pickupLongitude", formData.pickupLongitude);
   payload.append("expiryAt", new Date(formData.expiryAt).toISOString());
 
   if (formData.imageUrl.trim()) {
@@ -78,16 +94,7 @@ export default function VendorMyListingsPage() {
   const [deletingListingId, setDeletingListingId] = useState("");
   const [listingImageFile, setListingImageFile] = useState(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    type: "DISCOUNTED",
-    quantity: "1",
-    unitPrice: "",
-    location: "",
-    expiryAt: "",
-    imageUrl: "",
-  });
+  const [formData, setFormData] = useState(INITIAL_FORM_STATE);
 
   const loadListings = async () => {
     setLoading(true);
@@ -142,6 +149,10 @@ export default function VendorMyListingsPage() {
           ? (listing.unitPrice / 100).toFixed(2)
           : "",
       location: listing.location || "",
+      pickupLatitude:
+        typeof listing.pickupLatitude === "number" ? String(listing.pickupLatitude) : "",
+      pickupLongitude:
+        typeof listing.pickupLongitude === "number" ? String(listing.pickupLongitude) : "",
       expiryAt: toDateTimeInputValue(listing.expiryAt),
       imageUrl: listing.imageUrl || "",
     });
@@ -151,6 +162,7 @@ export default function VendorMyListingsPage() {
     setEditingListing(null);
     setListingImageFile(null);
     setImagePreviewUrl("");
+    setFormData(INITIAL_FORM_STATE);
   };
 
   const handleInputChange = (event) => {
@@ -191,19 +203,20 @@ export default function VendorMyListingsPage() {
       return;
     }
 
-    setDeletingListingId(deleteTarget.id);
+    const targetId = deleteTarget.id;
+    setDeletingListingId(targetId);
     setError("");
 
     try {
-      await apiRequest(`/listings/${deleteTarget.id}`, {
+      await apiRequest(`/listings/${targetId}`, {
         method: "DELETE",
       });
 
-      setListings((current) => current.filter((listing) => listing.id !== deleteTarget.id));
+      setListings((current) => current.filter((listing) => listing.id !== targetId));
+      setDeletingListingId("");
       setDeleteTarget(null);
     } catch (requestError) {
       setError(requestError.message || "Failed to delete this listing.");
-    } finally {
       setDeletingListingId("");
     }
   };
@@ -439,16 +452,30 @@ export default function VendorMyListingsPage() {
                   />
                 </label>
 
-                <label className="flex flex-col gap-1 sm:col-span-2">
-                  <span className="text-xs font-bold uppercase text-[#576455]">Pickup Location Details</span>
-                  <input
-                    required
-                    name="location"
-                    value={formData.location}
-                    onChange={handleInputChange}
-                    className="rounded-xl border border-[#d8e2d2] bg-[#fbfdf7] px-4 py-2.5 outline-none focus:border-[#f2994a]"
-                  />
-                </label>
+                <AddressAutocompleteField
+                  className="sm:col-span-2"
+                  label="Pickup Location Details"
+                  required
+                  value={formData.location}
+                  onValueChange={(nextValue) =>
+                    setFormData((current) => ({
+                      ...current,
+                      location: nextValue,
+                      pickupLatitude: "",
+                      pickupLongitude: "",
+                    }))
+                  }
+                  onLocationSelect={(location) =>
+                    setFormData((current) => ({
+                      ...current,
+                      location: location?.address || current.location,
+                      pickupLatitude:
+                        typeof location?.latitude === "number" ? String(location.latitude) : "",
+                      pickupLongitude:
+                        typeof location?.longitude === "number" ? String(location.longitude) : "",
+                    }))
+                  }
+                />
 
                 <label className="flex flex-col gap-1 sm:col-span-2">
                   <span className="text-xs font-bold uppercase text-[#576455]">Snapshot Image URL</span>

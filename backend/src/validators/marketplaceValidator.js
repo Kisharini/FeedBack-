@@ -34,12 +34,25 @@ const checkoutSchema = z.object({
     deliveryOption: z.enum(deliveryOptions),
     paymentMethod: z.enum(paymentMethods),
     deliveryAddress: z.string().trim().min(10).max(300).optional(),
+    deliveryLatitude: z.number().min(-90).max(90).optional(),
+    deliveryLongitude: z.number().min(-180).max(180).optional(),
   }).superRefine((body, ctx) => {
     if (body.deliveryOption === "DELIVERY" && !body.deliveryAddress) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["deliveryAddress"],
         message: "Delivery address is required when delivery is selected",
+      });
+    }
+
+    const hasDeliveryLatitude = typeof body.deliveryLatitude === "number";
+    const hasDeliveryLongitude = typeof body.deliveryLongitude === "number";
+
+    if (hasDeliveryLatitude !== hasDeliveryLongitude) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: hasDeliveryLatitude ? ["deliveryLongitude"] : ["deliveryLatitude"],
+        message: "Delivery coordinates must include both latitude and longitude",
       });
     }
   }),

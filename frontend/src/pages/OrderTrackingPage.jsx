@@ -52,6 +52,21 @@ const destinationIcon = L.divIcon({
 
 const getPickupAddress = (order) => order?.items?.[0]?.listing?.location || "Pickup location unavailable";
 const getDropoffAddress = (order) => order?.deliveryAddress || "Drop-off location unavailable";
+const getPickupCoordinatesFromOrder = (order) =>
+  typeof order?.items?.[0]?.listing?.pickupLatitude === "number" &&
+  typeof order?.items?.[0]?.listing?.pickupLongitude === "number"
+    ? {
+        latitude: order.items[0].listing.pickupLatitude,
+        longitude: order.items[0].listing.pickupLongitude,
+      }
+    : null;
+const getDropoffCoordinatesFromOrder = (order) =>
+  typeof order?.deliveryLatitude === "number" && typeof order?.deliveryLongitude === "number"
+    ? {
+        latitude: order.deliveryLatitude,
+        longitude: order.deliveryLongitude,
+      }
+    : null;
 
 const getEtaLabel = (order) => {
   if (!order) return "--";
@@ -179,9 +194,18 @@ export default function OrderTrackingPage({ orderId = null }) {
     }
 
     const loadStops = async () => {
+      const savedPickup = getPickupCoordinatesFromOrder(state.selectedOrder);
+      const savedDropoff = getDropoffCoordinatesFromOrder(state.selectedOrder);
+
+      if (savedPickup && savedDropoff) {
+        setPickupCoordinates(savedPickup);
+        setDropoffCoordinates(savedDropoff);
+        return;
+      }
+
       const [pickup, dropoff] = await Promise.all([
-        geocodeAddress(getPickupAddress(state.selectedOrder)),
-        geocodeAddress(getDropoffAddress(state.selectedOrder)),
+        savedPickup || geocodeAddress(getPickupAddress(state.selectedOrder)),
+        savedDropoff || geocodeAddress(getDropoffAddress(state.selectedOrder)),
       ]);
 
       if (!cancelled) {
