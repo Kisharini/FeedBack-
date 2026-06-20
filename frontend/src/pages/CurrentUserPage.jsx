@@ -120,7 +120,7 @@ export default function CurrentUserPage() {
                     <span className="material-symbols-outlined text-[18px] text-[#f2994a]">
                       {state.user.role === "NGO" ? "corporate_fare" : state.user.role === "RIDER" ? "moped" : state.user.role === "ADMIN" ? "admin_panel_settings" : ["VENDOR", "MERCHANT"].includes(state.user.role) ? "storefront" : "person"}
                     </span>
-                    {state.user.role} Member
+                    {state.user.role}
                   </p>
                 </div>
                 <div>
