@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
 import { apiRequest } from "../lib/api";
 import { navigateTo } from "../lib/navigation";
-import { getToken } from "../lib/auth";
+import { getCurrentUserFromStorage } from "../lib/auth";
 
 export default function AdminControlPanel() {
-  const [user, setUser] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [currentUser] = useState(() => getCurrentUserFromStorage());
+  const [actionLoadingId, setActionLoadingId] = useState("");
+  const [error, setError] = useState("");
   
-  // Seeded with realistic sample alerts as fallback data
   const [alerts, setAlerts] = useState([
     {
       id: "alert-mock-1",
@@ -16,7 +16,7 @@ export default function AdminControlPanel() {
       targetType: "LISTING",
       targetName: "Premium Medical Supplies Bulk",
       issueTitle: "Prohibited Item Category",
-      description: "This listing contains restricted prescription items violating section 4.2 of our community distribution guidelines. Distribution requires official verified NGO credentials.",
+      description: "This listing contains restricted prescription items violating section 4.2 of our community distribution guidelines.",
       reporterName: "System Flag (Automated Keyword)",
       timeAgo: "14 minutes ago"
     },
@@ -26,227 +26,140 @@ export default function AdminControlPanel() {
       targetType: "INDIVIDUAL",
       targetName: "Marcus Vance (Driver ID: #8841)",
       issueTitle: "Spam / Recurrent Delivery Cancellations",
-      description: "User has accepted and subsequently dropped 4 dispatch assignments within a 2-hour window, breaching standard delivery operator fulfillment rates.",
+      description: "User has accepted and subsequently dropped 4 dispatch assignments within a 2-hour window.",
       reporterName: "Logistics Engine Monitor",
       timeAgo: "2 hours ago"
     }
   ]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("ALL"); 
 
-  // 1. Client-Side Guard & User Profile Synchronizer
   useEffect(() => {
-    const token = getToken();
-
-    if (!token) {
+    if (!currentUser) {
       navigateTo("/login");
       return;
     }
 
-    let isMounted = true;
-
-    apiRequest("/auth/me", { token })
-      .then((response) => {
-        if (isMounted) {
-          const fetchedUser = response.data.user;
-          setUser(fetchedUser);
-          setAuthLoading(false);
-
-          // If the profile returns but they aren't an admin, safely redirect them
-          if (!fetchedUser || fetchedUser.role !== "ADMIN") {
-            navigateTo("/me");
-          }
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setAuthLoading(false);
-          navigateTo("/login");
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  // 2. Fetch Violation Stream
-  useEffect(() => {
-    if (user?.role === "ADMIN") {
-      apiRequest("/admin/alerts")
-        .then((res) => {
-          // If the server returns production data, use that instead of our placeholders
-          if (res.data && res.data.alerts) {
-            setAlerts(res.data.alerts);
-          }
-          setLoading(false);
-        })
-        .catch(() => {
-          // If API fails or is not ready yet, keep sample logs so UI doesn't look blank
-          setLoading(false);
-        });
+    if (currentUser.role !== "ADMIN") {
+      navigateTo("/");
+      return;
     }
-  }, [user]);
+  }, [currentUser]);
 
   const handleAction = async (alertId, actionType) => {
-    if (actionType === "BAN_USER" && !confirm("Are you sure you want to ban this actor?")) return;
+    setActionLoadingId(`${alertId}-${actionType}`);
+    setError("");
 
     try {
-      // Mock resolution local update for sample cards
-      if (alertId.startsWith("alert-mock-")) {
-        setAlerts((prev) => prev.filter((alert) => alert.id !== alertId));
-        return;
-      }
-
-      await apiRequest(`/admin/alerts/${alertId}/resolve`, { action: actionType });
-      setAlerts((prev) => prev.filter((alert) => alert.id !== alertId));
-    } catch (err) {
-      alert("Failed to execute moderation action. Please try again.");
+      await apiRequest(`/admin/alerts/${alertId}/action`, {
+        method: "POST",
+        body: JSON.stringify({ action: actionType }),
+        headers: {
+          "Content-Type": "application/json"
+        }
+      });
+      
+      setAlerts((prevAlerts) => prevAlerts.filter((alert) => alert.id !== alertId));
+    } catch (requestError) {
+      setError(requestError.message || "Failed to process moderation action.");
+    } finally {
+      setActionLoadingId("");
     }
   };
-
-  const filteredAlerts = alerts.filter(
-    (alert) => filter === "ALL" || alert.targetType === filter
-  );
-
-  if (authLoading || (user && loading)) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary/30 border-t-primary" />
-      </div>
-    );
-  }
-
-  if (user?.role !== "ADMIN") return null;
 
   return (
     <div className="min-h-screen bg-background text-on-background font-body-md antialiased">
       <Navbar />
-      <main className="max-w-5xl mx-auto px-6 py-12">
-        
-        {/* Header Breadcrumb & Title */}
-        <div className="mb-8">
-          <button 
-            type="button"
-            onClick={() => navigateTo("/me")} 
-            className="text-xs font-bold uppercase tracking-wider text-[#70816c] hover:text-[#213722] inline-flex items-center gap-1.5 transition border border-[#edf1e6] hover:border-[#ccd7c7] px-3 py-1.5 rounded-xl bg-white shadow-sm"
-          >
-            <span className="material-symbols-outlined text-sm">arrow_back</span> 
-            Back to Profile
-          </button>
-          <h1 className="text-3xl font-bold text-[#213722] tracking-tight mt-4">
-            System Control & Moderation Deck
-          </h1>
-          <p className="text-sm text-[#5f6d5b] mt-1">
-            Enforce safety compliance, review flagged actors, and resolve marketplace listing violations.
-          </p>
-        </div>
-
-        {/* Filter Navigation Tabs */}
-        <div className="flex flex-wrap gap-2 mb-6 border-b border-[#edf1e6] pb-4">
-          {["ALL", "RIDER", "NGO", "INDIVIDUAL", "LISTING"].map((type) => (
-            <button
-              key={type}
-              type="button"
-              onClick={() => setFilter(type)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                filter === type
-                  ? "bg-[#213722] text-white shadow-sm"
-                  : "bg-white text-[#5f6d5b] border border-[#edf1e6] hover:bg-[#fafdf6]"
-              }`}
-            >
-              {type === "ALL" ? "All Alerts" : `${type} Flags`}
-            </button>
-          ))}
-        </div>
-
-        {/* Alert Queue Stream */}
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 space-y-3">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary/30 border-t-primary" />
-            <p className="text-sm font-medium text-on-surface-variant">
-              Loading active violation pipeline...
+      <main className="mx-auto max-w-7xl px-6 py-10">
+        <section className="overflow-hidden rounded-[2.5rem] border border-[#e6ebda] bg-[linear-gradient(135deg,#fff9ef_0%,#f5fbe9_48%,#eef7ff_100%)] p-8 shadow-level-2">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#6c7d69]">
+              Administration Panel
+            </p>
+            <h1 className="mt-2 font-display text-[clamp(2rem,3vw,2.8rem)] leading-tight text-[#1d3720]">
+              System Flags & Audit Queue
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#53604a]">
+              Review automated flags, community infraction notices, and target exceptions. Enforce platform compliance across drivers, customers, and active vendor inventory.
             </p>
           </div>
-        ) : filteredAlerts.length === 0 ? (
-          <div className="bg-white rounded-[2rem] border border-[#edf1e6] p-12 text-center shadow-sm">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#eef7df] text-primary mb-4">
-              <span className="material-symbols-outlined text-2xl">verified</span>
-            </div>
-            <p className="text-base font-bold text-[#213722]">Workspace Clear</p>
-            <p className="text-sm text-[#5f6d5b] max-w-xs mx-auto mt-1">
-              No pending flags or critical policy violations detected.
+        </section>
+
+        {error && (
+          <div className="mt-6 rounded-2xl border border-red-100 bg-red-50 px-5 py-4 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        {alerts.length === 0 ? (
+          <div className="mt-8 rounded-[2rem] border border-dashed border-[#d5dec8] bg-white px-6 py-14 text-center">
+            <p className="text-h2 text-[#223623]">All clear!</p>
+            <p className="mt-3 text-body-md text-[#63705f]">
+              No pending moderation flags or system warnings require your attention.
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {filteredAlerts.map((alert) => (
+          <div className="mt-8 space-y-6">
+            {alerts.map((alert) => (
               <div 
-                key={alert.id} 
-                className="bg-white rounded-[2rem] border border-[#e7eddc] p-6 sm:p-8 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden"
+                key={alert.id}
+                className="overflow-hidden rounded-[2rem] border border-[#ebefdf] bg-white p-6 shadow-[0_12px_24px_rgba(92,103,70,0.05)] flex flex-col md:flex-row md:items-start justify-between gap-6"
               >
-                <div className={`absolute top-0 left-0 right-0 h-1.5 ${
-                  alert.severity === "HIGH" ? "bg-red-500" : "bg-amber-500"
-                }`} />
-
-                {/* Left Side: Offender Details */}
-                <div className="space-y-2 max-w-2xl">
-                  <div className="flex items-center gap-2.5">
-                    <span className={`px-2.5 py-0.5 rounded-md text-xs font-bold border ${
+                <div className="space-y-3 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`px-2.5 py-1 text-xs font-bold rounded-full border ${
                       alert.severity === "HIGH" 
-                        ? "bg-red-50 text-red-700 border-red-100" 
-                        : "bg-amber-50 text-amber-700 border-amber-100"
+                        ? "bg-red-50 text-red-700 border-red-200" 
+                        : "bg-amber-50 text-amber-700 border-amber-200"
                     }`}>
-                      {alert.severity} RISK
+                      {alert.severity} Priority
                     </span>
-                    <span className="text-xs font-bold text-[#70816c] uppercase tracking-wider">
-                      Target: {alert.targetType} ({alert.targetName})
+                    <span className="text-xs font-medium text-[#70816c]">
+                      Reported by {alert.reporterName} • {alert.timeAgo}
                     </span>
                   </div>
-
-                  <h3 className="font-bold text-lg text-[#213722] tracking-tight">{alert.issueTitle}</h3>
-                  <p className="text-sm text-[#5f6d5b] leading-relaxed">{alert.description}</p>
                   
-                  <div className="text-xs text-[#70816c] pt-1 flex items-center gap-2">
-                    <span>Reported by: <strong className="text-[#3d523e]">{alert.reporterName}</strong></span>
-                    <span>&bull;</span>
-                    <span>Timeline: {alert.timeAgo}</span>
+                  <div>
+                    <h3 className="text-lg font-bold text-[#1d3720]">{alert.issueTitle}</h3>
+                    <p className="text-sm font-semibold text-primary mt-1">Target: {alert.targetName} ({alert.targetType})</p>
+                    <p className="mt-2 text-sm leading-relaxed text-[#5b6757]">{alert.description}</p>
                   </div>
                 </div>
 
-                {/* Right Side: Adaptive Action Controls */}
-                <div className="flex flex-row md:flex-col gap-2 shrink-0 justify-end w-full md:w-auto">
+                <div className="flex flex-wrap md:flex-col lg:flex-row gap-2 self-stretch md:self-start justify-end">
                   {alert.targetType === "LISTING" ? (
                     <button
                       type="button"
-                      onClick={() => handleAction(alert.id, "SUSPEND_LISTING")}
-                      className="flex-1 md:flex-initial px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl transition shadow-sm whitespace-nowrap"
+                      disabled={actionLoadingId === `${alert.id}-TAKE_DOWN_LISTING`}
+                      onClick={() => handleAction(alert.id, "TAKE_DOWN_LISTING")}
+                      className="flex-1 md:flex-initial px-4 py-2.5 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white text-xs font-bold rounded-xl transition shadow-sm whitespace-nowrap disabled:cursor-not-allowed"
                     >
-                      Take Down Listing
+                      {actionLoadingId === `${alert.id}-TAKE_DOWN_LISTING` ? "Processing..." : "Take Down Listing"}
                     </button>
                   ) : (
                     <button
                       type="button"
+                      disabled={actionLoadingId === `${alert.id}-BAN_USER`}
                       onClick={() => handleAction(alert.id, "BAN_USER")}
-                      className="flex-1 md:flex-initial px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl transition shadow-sm whitespace-nowrap"
+                      className="flex-1 md:flex-initial px-4 py-2.5 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white text-xs font-bold rounded-xl transition shadow-sm whitespace-nowrap disabled:cursor-not-allowed"
                     >
-                      Restrict Account
+                      {actionLoadingId === `${alert.id}-BAN_USER` ? "Processing..." : "Restrict Account"}
                     </button>
                   )}
                   
                   <button
                     type="button"
+                    disabled={actionLoadingId === `${alert.id}-WARN_USER`}
                     onClick={() => handleAction(alert.id, "WARN_USER")}
-                    className="flex-1 md:flex-initial px-4 py-2.5 bg-white border border-[#d6e0ca] hover:bg-amber-50 text-amber-800 text-xs font-bold rounded-xl transition whitespace-nowrap"
+                    className="flex-1 md:flex-initial px-4 py-2.5 bg-white border border-[#d6e0ca] hover:bg-amber-50 text-amber-800 text-xs font-bold rounded-xl transition whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    Issue Warning
+                    {actionLoadingId === `${alert.id}-WARN_USER` ? "Sending..." : "Issue Warning"}
                   </button>
                   <button
                     type="button"
+                    disabled={actionLoadingId === `${alert.id}-DISMISS_ALERT`}
                     onClick={() => handleAction(alert.id, "DISMISS_ALERT")}
-                    className="flex-1 md:flex-initial px-4 py-2.5 bg-white border border-[#edf1e6] hover:bg-[#fafdf6] text-[#5f6d5b] text-xs font-medium rounded-xl transition whitespace-nowrap"
+                    className="flex-1 md:flex-initial px-4 py-2.5 bg-white border border-[#edf1e6] hover:bg-[#fafdf6] text-[#5f6d5b] text-xs font-medium rounded-xl transition whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    Dismiss Flag
+                    {actionLoadingId === `${alert.id}-DISMISS_ALERT` ? "Dismissing..." : "Dismiss Flag"}
                   </button>
                 </div>
               </div>

@@ -35,6 +35,17 @@ const statusTone = {
   EXPIRED: "bg-slate-100 text-slate-600 border-slate-200",
 };
 
+const INITIAL_FORM_STATE = {
+  title: "",
+  description: "",
+  type: "DISCOUNTED",
+  quantity: "1",
+  unitPrice: "",
+  location: "",
+  expiryAt: "",
+  imageUrl: "",
+};
+
 function buildListingPayload(formData, listingImageFile) {
   const payload = new FormData();
   payload.append("title", formData.title.trim());
@@ -78,16 +89,7 @@ export default function VendorMyListingsPage() {
   const [deletingListingId, setDeletingListingId] = useState("");
   const [listingImageFile, setListingImageFile] = useState(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    type: "DISCOUNTED",
-    quantity: "1",
-    unitPrice: "",
-    location: "",
-    expiryAt: "",
-    imageUrl: "",
-  });
+  const [formData, setFormData] = useState(INITIAL_FORM_STATE);
 
   const loadListings = async () => {
     setLoading(true);
@@ -151,6 +153,7 @@ export default function VendorMyListingsPage() {
     setEditingListing(null);
     setListingImageFile(null);
     setImagePreviewUrl("");
+    setFormData(INITIAL_FORM_STATE);
   };
 
   const handleInputChange = (event) => {
@@ -191,19 +194,20 @@ export default function VendorMyListingsPage() {
       return;
     }
 
-    setDeletingListingId(deleteTarget.id);
+    const targetId = deleteTarget.id;
+    setDeletingListingId(targetId);
     setError("");
 
     try {
-      await apiRequest(`/listings/${deleteTarget.id}`, {
+      await apiRequest(`/listings/${targetId}`, {
         method: "DELETE",
       });
 
-      setListings((current) => current.filter((listing) => listing.id !== deleteTarget.id));
+      setListings((current) => current.filter((listing) => listing.id !== targetId));
+      setDeletingListingId("");
       setDeleteTarget(null);
     } catch (requestError) {
       setError(requestError.message || "Failed to delete this listing.");
-    } finally {
       setDeletingListingId("");
     }
   };
