@@ -2,6 +2,7 @@ const { StatusCodes } = require("http-status-codes");
 const prisma = require("../config/prisma");
 const asyncHandler = require("../utils/asyncHandler");
 const ApiError = require("../utils/apiError");
+const { creditCompletedOrderWallets } = require("../services/walletService");
 const { matchFoodListings } = require("../utils/matchingEngine");
 
 const ROLE_TO_LISTING_TYPE = {
@@ -75,6 +76,8 @@ const mapListing = (listing) => ({
   quantity: listing.quantity,
   expiryAt: listing.expiryAt,
   location: listing.location,
+  pickupLatitude: listing.pickupLatitude,
+  pickupLongitude: listing.pickupLongitude,
   imageUrl: listing.imageUrl,
   status: listing.status,
   unitPrice: listing.type === "DISCOUNTED" ? toMoney(listing.unitPrice || 0) : toMoney(0),
@@ -100,6 +103,8 @@ const mapOrder = (order) => ({
   deliveryFeeAmount: toMoney(order.deliveryFeeAmount),
   totalAmount: toMoney(order.totalAmount),
   deliveryAddress: order.deliveryAddress,
+  deliveryLatitude: order.deliveryLatitude,
+  deliveryLongitude: order.deliveryLongitude,
   pickupInstructions: order.pickupInstructions,
   rider: order.riderName
     ? {
@@ -139,6 +144,8 @@ const mapOrder = (order) => ({
     listing: item.listing
       ? {
           location: item.listing.location,
+          pickupLatitude: item.listing.pickupLatitude,
+          pickupLongitude: item.listing.pickupLongitude,
           imageUrl: item.listing.imageUrl,
           expiryAt: item.listing.expiryAt,
         }
@@ -220,18 +227,17 @@ const listListings = asyncHandler(async (req, res) => {
     ],
   });
 
-  // 1. Map query values cleanly to match userPreferences structure for your text matching file
   const userPreferences = {
     userLocationText: req.validated.query.location || "",
-    neededQuantity: req.validated.query.neededQuantity ? parseInt(req.validated.query.neededQuantity, 10) : 1,
+    neededQuantity: req.validated.query.neededQuantity
+      ? parseInt(req.validated.query.neededQuantity, 10)
+      : 1,
     userRole: req.user.role,
     preferredTypes: req.validated.query.search ? [req.validated.query.search] : [],
   };
 
-  // 2. Run database list rows through your matching logic engine to compute listing.matchScore
   const scoredRawListings = matchFoodListings(userPreferences, listings);
 
-  // 3. Output payload cleanly formatted using mapListing helper 
   return res.status(StatusCodes.OK).json({
     success: true,
     message: "Listings fetched successfully",
@@ -280,7 +286,14 @@ const getListingById = asyncHandler(async (req, res) => {
 
 const createOrder = asyncHandler(async (req, res) => {
   const allowedType = buildListingAccess(req.user.role);
-  const { items, deliveryOption, paymentMethod, deliveryAddress } = req.validated.body;
+  const {
+    items,
+    deliveryOption,
+    paymentMethod,
+    deliveryAddress,
+    deliveryLatitude,
+    deliveryLongitude,
+  } = req.validated.body;
   const listingIds = [...new Set(items.map((item) => item.listingId))];
   const quantityMap = new Map(items.map((item) => [item.listingId, item.quantity]));
 
@@ -360,6 +373,8 @@ const createOrder = asyncHandler(async (req, res) => {
         deliveryFeeAmount,
         totalAmount,
         deliveryAddress: deliveryOption === "DELIVERY" ? deliveryAddress : null,
+        deliveryLatitude: deliveryOption === "DELIVERY" ? deliveryLatitude ?? null : null,
+        deliveryLongitude: deliveryOption === "DELIVERY" ? deliveryLongitude ?? null : null,
         pickupInstructions: deliveryOption === "SELF_PICKUP" ? PICKUP_INSTRUCTIONS : null,
         trackingMessage,
         paidAt: now,
@@ -509,42 +524,60 @@ const confirmSelfPickupOrder = asyncHandler(async (req, res) => {
     throw new ApiError(StatusCodes.NOT_FOUND, "Order not found");
   }
 
-  if (order.deliveryOption !== "SELF_PICKUP") {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      "Only self-pickup orders can be manually marked as picked up"
-    );
-  }
-
   if (order.status === "COMPLETED") {
     throw new ApiError(StatusCodes.BAD_REQUEST, "This order is already completed");
   }
 
-  const now = new Date();
+  if (order.deliveryOption === "DELIVERY" && order.status !== "DELIVERED") {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Delivery orders can only be completed after the rider arrives at the drop-off location"
+    );
+  }
 
-  const updatedOrder = await prisma.order.update({
-    where: {
-      id: order.id,
-    },
-    data: {
-      status: "COMPLETED",
-      deliveredAt: order.deliveredAt || now,
-      completedAt: now,
-      trackingMessage:
-        "Pickup confirmed by the recipient. The order has been completed successfully.",
-    },
-    include: {
-      items: {
-        include: {
-          listing: true,
+  if (order.deliveryOption === "SELF_PICKUP" && order.status === "PAYMENT_CONFIRMED") {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "This pickup order is not ready to be completed yet"
+    );
+  }
+
+  const now = new Date();
+  const completionMessage =
+    order.deliveryOption === "SELF_PICKUP"
+      ? "Pickup confirmed by the recipient. The order has been completed successfully."
+      : "Delivery confirmed by the recipient. The order has been completed successfully.";
+
+  const updatedOrder = await prisma.$transaction(async (tx) => {
+    const completedOrder = await tx.order.update({
+      where: {
+        id: order.id,
+      },
+      data: {
+        status: "COMPLETED",
+        deliveredAt: order.deliveredAt || now,
+        completedAt: now,
+        trackingMessage: completionMessage,
+      },
+      include: {
+        items: {
+          include: {
+            listing: true,
+          },
         },
       },
-    },
+    });
+
+    await creditCompletedOrderWallets(tx, completedOrder);
+    return completedOrder;
   });
 
   return res.status(StatusCodes.OK).json({
     success: true,
-    message: "Order marked as picked up successfully",
+    message:
+      order.deliveryOption === "SELF_PICKUP"
+        ? "Order marked as picked up successfully"
+        : "Order marked as delivered successfully",
     data: {
       order: mapOrder(updatedOrder),
     },

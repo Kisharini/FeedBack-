@@ -263,10 +263,21 @@ export default function VendorOrderHistoryPage() {
                           <p>Payment Method: <span className="font-semibold text-[#1d3720]">{order.paymentMethod}</span></p>
                           <p>Total Order Value: <span className="font-semibold text-[#1d3720]">{order.totalAmount.formatted}</span></p>
                           <p>Paid At: <span className="font-semibold text-[#1d3720]">{formatDateTime(order.paidAt)}</span></p>
+                          {order.rider ? (
+                            <>
+                              <p>Assigned Rider: <span className="font-semibold text-[#1d3720]">{order.rider.name}</span></p>
+                              <p>Rider Contact: <span className="font-semibold text-[#1d3720]">{order.rider.phoneNumber || "--"}</span></p>
+                            </>
+                          ) : (
+                            <p>Assigned Rider: <span className="font-semibold text-[#1d3720]">Waiting for rider acceptance</span></p>
+                          )}
                           {order.deliveryAddress ? (
                             <p>Delivery Address: <span className="font-semibold text-[#1d3720]">{order.deliveryAddress}</span></p>
                           ) : (
                             <p>Pickup Notes: <span className="font-semibold text-[#1d3720]">{order.pickupInstructions || "--"}</span></p>
+                          )}
+                          {order.tracking?.message && (
+                            <p>Tracking Update: <span className="font-semibold text-[#1d3720]">{order.tracking.message}</span></p>
                           )}
                         </div>
                         {order.deliveryOption === "SELF_PICKUP" && order.status !== "COMPLETED" && (

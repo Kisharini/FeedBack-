@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
 import { addCartItem, getCartCount } from "../lib/cart";
 import { getCurrentUserFromStorage } from "../lib/auth";
@@ -59,21 +59,17 @@ export default function ListingDetailsPage({ listingId }) {
         setCartCount(0);
         return;
       }
-
       setCartCount(getCartCount(currentUser.role));
     };
 
     window.addEventListener("cartchange", syncCartCount);
-
     return () => {
       window.removeEventListener("cartchange", syncCartCount);
     };
   }, [currentUser]);
 
   const handleAddToCart = () => {
-    if (!state.listing || !currentUser) {
-      return;
-    }
+    if (!state.listing || !currentUser) return;
 
     addCartItem(currentUser.role, {
       listingId: state.listing.id,
@@ -103,15 +99,17 @@ export default function ListingDetailsPage({ listingId }) {
           <button
             type="button"
             onClick={() => navigateTo("/marketplace")}
-            className="rounded-full border border-[#dde6cf] bg-white px-4 py-2 text-sm text-[#445441] transition hover:bg-[#f4f8ee]"
+            className="rounded-full border border-[#dde6cf] bg-white px-4 py-2 text-sm text-[#445441] transition hover:bg-[#f4f8ee] inline-flex items-center gap-1.5"
           >
-            Back to marketplace
+            <span className="material-symbols-outlined text-sm">arrow_back</span>
+            Back to Marketplace
           </button>
           <button
             type="button"
             onClick={() => navigateTo("/marketplace/checkout")}
-            className="rounded-full bg-[#eef7df] px-4 py-2 text-sm font-semibold text-primary transition hover:bg-[#fff0d1]"
+            className="rounded-full bg-[#eef7df] px-4 py-2 text-sm font-semibold text-primary transition hover:bg-[#fff0d1] inline-flex items-center gap-1.5"
           >
+            <span className="material-symbols-outlined text-sm">shopping_cart</span>
             Cart: {cartCount} item(s)
           </button>
         </div>
@@ -142,23 +140,20 @@ export default function ListingDetailsPage({ listingId }) {
                     </div>
                   </div>
                 )}
-                {/* Changed text to an explicit vibrant orange tag */}
                 <div className="absolute left-5 top-5 rounded-full bg-white/95 px-4 py-2 text-xs font-bold tracking-wide text-[#F2994A] shadow-sm">
-                  {state.listing.type === "DISCOUNTED"
-                    ? "50% Discounted"
-                    : "Donation food for NGOs"}
+                  {state.listing.type === "DISCOUNTED" ? "50% Discounted" : "Donation Food for NGOs"}
                 </div>
               </div>
 
               <div className="space-y-6 p-6">
                 <div>
                   <p className="font-label-md text-label-md uppercase tracking-[0.18em] text-[#6b7b69]">
-                    Listing overview
+                    Listing Overview
                   </p>
-                  <h1 className="mt-2 text-[clamp(2rem,3vw,2.8rem)] font-bold leading-tight text-[#213722]">
+                  <h1 className="mt-2 text-3xl font-bold leading-tight text-[#213722]">
                     {state.listing.title}
                   </h1>
-                  <p className="mt-4 text-[1rem] leading-7 text-[#576454]">
+                  <p className="mt-4 text-sm leading-7 text-[#576454]">
                     {state.listing.description}
                   </p>
                 </div>
@@ -172,7 +167,7 @@ export default function ListingDetailsPage({ listingId }) {
                   <DetailCard icon="location_on" label="Location" value={state.listing.location} />
                   <DetailCard
                     icon="inventory_2"
-                    label="Available quantity"
+                    label="Available Quantity"
                     value={`${state.listing.quantity}`}
                   />
                   <DetailCard
@@ -190,15 +185,12 @@ export default function ListingDetailsPage({ listingId }) {
               <div className="rounded-[1.7rem] border border-[#e7eed9] bg-white p-5">
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#75856d]"> Pricing Details </p>
                 
-                {/* New Price box architecture rendering actual price vs discounted layout */}
                 <div className="mt-4 flex flex-wrap items-baseline gap-3">
                   {state.listing.type === "DISCOUNTED" ? (
                     <>
-                      {/* Active Discount Buying Price */}
                       <span className="text-4xl font-extrabold tracking-tight text-[#1f3821]">
                         {state.listing.unitPrice.formatted}
                       </span>
-                      {/* Original Slashed Price */}
                       {state.listing.originalPrice && (
                         <span className="text-lg font-medium text-[#a0b09c] line-through decoration-red-400/60 decoration-2">
                           {state.listing.originalPrice.formatted}
@@ -207,14 +199,14 @@ export default function ListingDetailsPage({ listingId }) {
                     </>
                   ) : (
                     <span className="text-3xl font-bold tracking-tight text-primary">
-                      Free donation
+                      Free Donation
                     </span>
                   )}
                 </div>
 
                 <p className="mt-3.5 text-sm leading-relaxed text-[#617160]">
                   {state.listing.type === "DISCOUNTED"
-                    ? "Individuals can add this discounted item to cart, select delivery or self pickup, and choose a mock Malaysian payment option at checkout."
+                    ? "Individuals can add this discounted item to cart, select delivery or self pickup, and complete checkout using their preferred Malaysian payment method."
                     : "As an NGO representative, you are eligible to request this surplus batch entirely free of charge. Shipping fees only apply upon selecting home-delivery."}
                 </p>
               </div>
@@ -238,11 +230,7 @@ export default function ListingDetailsPage({ listingId }) {
                   <button
                     type="button"
                     disabled={quantity >= state.listing.quantity}
-                    onClick={() =>
-                      setQuantity((current) =>
-                        Math.min(state.listing.quantity, current + 1)
-                      )
-                    }
+                    onClick={() => setQuantity((current) => Math.min(state.listing.quantity, current + 1))}
                     className="flex h-11 w-11 items-center justify-center rounded-full border border-[#d8e4cd] bg-[#f7fbef] text-[#355227] transition hover:bg-[#eaf3dd] disabled:opacity-40"
                   >
                     +
@@ -253,9 +241,10 @@ export default function ListingDetailsPage({ listingId }) {
                   <button
                     type="button"
                     onClick={handleAddToCart}
-                    className="w-full rounded-xl bg-primary px-4 py-3.5 font-semibold text-white transition shadow-sm hover:bg-[#f59b27]"
+                    className="w-full rounded-xl bg-primary px-4 py-3.5 font-semibold text-white transition shadow-sm hover:bg-[#f59b27] inline-flex items-center justify-center gap-1.5"
                   >
-                    {state.listing.type === "DISCOUNTED" ? "Add To Cart" : "Add Donation To Cart"}
+                    <span className="material-symbols-outlined text-sm">add_shopping_cart</span>
+                    {state.listing.type === "DISCOUNTED" ? "Add to Cart" : "Add Donation to Cart"}
                   </button>
                   <button
                     type="button"
@@ -263,9 +252,10 @@ export default function ListingDetailsPage({ listingId }) {
                       handleAddToCart();
                       navigateTo("/marketplace/checkout");
                     }}
-                    className="w-full rounded-xl border border-[#d7e2cb] bg-white px-4 py-3.5 font-semibold text-[#29412a] transition shadow-sm hover:bg-[#f6faef]"
+                    className="w-full rounded-xl border border-[#d7e2cb] bg-white px-4 py-3.5 font-semibold text-[#29412a] transition shadow-sm hover:bg-[#f6faef] inline-flex items-center justify-center gap-1.5"
                   >
-                    Proceed To Checkout
+                    <span className="material-symbols-outlined text-sm">shopping_cart_checkout</span>
+                    Proceed to Checkout
                   </button>
                 </div>
 
@@ -281,8 +271,8 @@ export default function ListingDetailsPage({ listingId }) {
                 <ul className="mt-3 space-y-2 text-sm leading-relaxed text-[#735327]">
                   <li className="flex gap-2"><span>1.</span> Add one or more listings to your cart.</li>
                   <li className="flex gap-2"><span>2.</span> Choose delivery or self pickup during checkout.</li>
-                  <li className="flex gap-2"><span>3.</span> Pay using a mock payment method such as FPX or Touch 'n Go.</li>
-                  <li className="flex gap-2"><span>4.</span> Track pickup readiness or mock rider delivery updates on the tracking dashboard.</li>
+                  <li className="flex gap-2"><span>3.</span> Complete payment using FPX, Touch 'n Go, or another available method.</li>
+                  <li className="flex gap-2"><span>4.</span> Track pickup readiness or rider delivery updates on the tracking dashboard.</li>
                 </ul>
               </div>
             </div>

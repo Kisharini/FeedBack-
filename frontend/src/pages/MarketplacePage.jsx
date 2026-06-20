@@ -8,15 +8,13 @@ import { navigateTo } from "../lib/navigation";
 const audienceCopy = {
   INDIVIDUAL: {
     title: "Discounted Food Marketplace",
-    subtitle:
-      "Browse discounted surplus meals from vendors, add them to cart, and check out with pickup or delivery.",
+    subtitle: "Browse discounted surplus meals from vendors, add them to cart, and check out with pickup or delivery.",
     badge: "Individual Access",
   },
   NGO: {
     title: "Donation Food Marketplace",
-    subtitle:
-      "Browse free donation listings from vendors. NGOs only pay delivery when delivery is selected.",
-    badge: "NGO access",
+    subtitle: "Browse free donation listings from vendors. NGOs only pay delivery when delivery is selected.",
+    badge: "NGO Access",
   },
 };
 
@@ -60,7 +58,6 @@ export default function MarketplacePage() {
 
     const loadListings = async () => {
       setState((current) => ({ ...current, loading: true, error: "" }));
-
       try {
         const calculatedMaxPrice =
           currentUser.role === "INDIVIDUAL" && filters.maxPrice
@@ -75,7 +72,6 @@ export default function MarketplacePage() {
           neededQuantity: Number(filters.neededQuantity) || 1,
           userRole: currentUser.role
         });
-
         setState({
           loading: false,
           error: "",
@@ -89,7 +85,6 @@ export default function MarketplacePage() {
         });
       }
     };
-
     loadListings();
   }, [currentUser, filters.location, filters.maxPrice, filters.search, filters.neededQuantity]);
 
@@ -104,7 +99,6 @@ export default function MarketplacePage() {
 
     window.addEventListener("cartchange", syncCartCount);
     syncCartCount();
-
     return () => {
       window.removeEventListener("cartchange", syncCartCount);
     };
@@ -112,10 +106,7 @@ export default function MarketplacePage() {
 
   const handleChange = (event) => {
     const { name, value } = event.target;
-    setFilters((current) => ({
-      ...current,
-      [name]: value,
-    }));
+    setFilters((current) => ({ ...current, [name]: value }));
   };
 
   return (
@@ -131,7 +122,7 @@ export default function MarketplacePage() {
                 <span className="text-[#F2994A]">
                   {currentUser?.role === "NGO"
                     ? currentUser?.businessName || currentUser?.name?.split(" ")[0]
-                    : currentUser?.name?.split(" ")[0] || "User"}{" "} !
+                    : currentUser?.name?.split(" ")[0] || "User"}!
                 </span>
               </div>
               <h1 className="font-display text-[clamp(2.2rem,4vw,3.4rem)] leading-tight text-[#1d3720]">
@@ -149,9 +140,7 @@ export default function MarketplacePage() {
                 className="rounded-[1.4rem] border border-[#f2994a]/40 bg-white px-5 py-4 text-left shadow-[0_0_15px_rgba(242,153,74,0.12)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_25px_rgba(242,153,74,0.3)] hover:border-[#f2994a]/80"
               >
                 <div className="flex items-center gap-2 text-[#203322]">
-                  <span className="material-symbols-outlined text-[20px] text-[#f2994a]">
-                    shopping_cart
-                  </span>
+                  <span className="material-symbols-outlined text-[20px] text-[#f2994a]">shopping_cart</span>
                   <p className="text-sm font-semibold">Checkout Cart</p>
                 </div>
                 <p className="mt-1 pl-7 text-sm text-[#5a6752]">{cartCount} item(s) ready</p>
@@ -163,14 +152,10 @@ export default function MarketplacePage() {
                 className="rounded-[1.4rem] border border-[#4c6b84]/40 bg-white px-5 py-4 text-left shadow-[0_0_15px_rgba(76,107,132,0.12)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_25px_rgba(76,107,132,0.3)] hover:border-[#4c6b84]/80"
               >
                 <div className="flex items-center gap-2 text-[#203322]">
-                  <span className="material-symbols-outlined text-[20px] text-[#4c6b84]">
-                    local_shipping
-                  </span>
+                  <span className="material-symbols-outlined text-[20px] text-[#4c6b84]">local_shipping</span>
                   <p className="text-sm font-semibold">Track Order Status</p>
                 </div>
-                <p className="mt-1 pl-7 text-sm text-[#5a6752]">
-                  Monitor payment, pickup, and rider updates
-                </p>
+                <p className="mt-1 pl-7 text-sm text-[#5a6752]">Monitor status updates</p>
               </button>
             </div>
           </div>
@@ -211,9 +196,7 @@ export default function MarketplacePage() {
             </label>
             {currentUser?.role === "INDIVIDUAL" && (
               <label className="flex flex-col gap-2">
-                <span className="font-label-md text-label-md uppercase text-on-surface">
-                  Max Price (RM)
-                </span>
+                <span className="font-label-md text-label-md uppercase text-on-surface">Max Price (RM)</span>
                 <input
                   name="maxPrice"
                   type="number"
@@ -236,17 +219,14 @@ export default function MarketplacePage() {
         {state.loading ? (
           <section className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 6 }).map((_, index) => (
-              <div
-                key={index}
-                className="h-[320px] animate-pulse rounded-[2rem] border border-[#edf0e6] bg-white"
-              />
+              <div key={index} className="h-[320px] animate-pulse rounded-[2rem] border border-[#edf0e6] bg-white" />
             ))}
           </section>
         ) : state.listings.length === 0 ? (
           <section className="mt-8 rounded-[2rem] border border-dashed border-[#d5dec8] bg-white px-6 py-14 text-center">
-            <p className="text-h2 text-[#223623]">No matching listings right now</p>
+            <p className="text-xl font-bold text-[#223623]">No matching listings right now</p>
             <p className="mt-3 text-body-md text-[#63705f]">
-              Try adjusting your filters or come back once more vendors publish listings for your audience.
+              Try adjusting your filters or come back once more vendors publish listings.
             </p>
           </section>
         ) : (
@@ -279,7 +259,6 @@ export default function MarketplacePage() {
                       </div>
                     </div>
                   )}
-                  
                   <div
                     className={`absolute left-4 top-4 rounded-full px-3 py-1 text-xs font-bold tracking-wide shadow-sm ${
                       listing.type === "DISCOUNTED"
@@ -294,7 +273,7 @@ export default function MarketplacePage() {
                 <div className="space-y-4 p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <h2 className="text-h2 text-[#233424]">{listing.title}</h2>
+                      <h2 className="text-lg font-bold text-[#233424]">{listing.title}</h2>
                       <p className="mt-1 text-sm text-[#60705f]">
                         {listing.vendor.businessName || listing.vendor.name}
                       </p>
@@ -316,9 +295,7 @@ export default function MarketplacePage() {
                           </span>
                         </div>
                       ) : (
-                        <p className="mt-0.5 text-sm font-bold text-[#244125]">
-                          Free
-                        </p>
+                        <p className="mt-0.5 text-sm font-bold text-[#244125]">Free</p>
                       )}
                     </div>
                   </div>
@@ -349,8 +326,9 @@ export default function MarketplacePage() {
                   <button
                     type="button"
                     onClick={() => navigateTo(`/marketplace/listings/${listing.id}`)}
-                    className="w-full rounded-xl bg-primary px-4 py-3 font-semibold text-white transition hover:bg-[#f59b27]"
+                    className="w-full rounded-xl bg-primary px-4 py-3 font-semibold text-white transition hover:bg-[#f59b27] inline-flex items-center justify-center gap-1.5"
                   >
+                    <span className="material-symbols-outlined text-sm">visibility</span>
                     View Food Details
                   </button>
                 </div>
@@ -370,7 +348,7 @@ function InfoPill({ icon, label, value }) {
         <span className="material-symbols-outlined text-[18px]">{icon}</span>
         <span className="text-xs font-semibold uppercase tracking-wide">{label}</span>
       </div>
-      <p className="mt-2 text-sm text-[#243923]">{value}</p>
+      <p className="mt-2 text-sm text-[#243923] truncate">{value}</p>
     </div>
   );
 }

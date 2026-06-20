@@ -20,6 +20,7 @@ import VendorOrderHistoryPage from "./pages/VendorOrderHistoryPage";
 // IMPORTED: Match the file name exactly (RiderDeliveryHistory without 'Page')
 import RiderDashboardPage from "./pages/RiderDashboardPage";
 import RiderDeliveryHistory from "./pages/RiderDeliveryHistory";
+import RiderWalletPage from "./pages/RiderWalletPage";
 
 const staticRoutes = {
   "/": LandingPage,
@@ -41,6 +42,7 @@ const staticRoutes = {
   "/vendordashboard": VendorListingDashboard,
   "/rider/dashboard": RiderDashboardPage,
   "/rider/history": RiderDeliveryHistory,
+  "/rider/wallet": RiderWalletPage,
 };
 
 const dynamicRoutes = [
