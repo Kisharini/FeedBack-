@@ -196,10 +196,6 @@ export default function PendingApprovalsPage() {
       <main className="max-w-6xl mx-auto px-6 py-12">
         <div className="bg-white rounded-[2rem] shadow-lg p-8 border border-surface-container-high">
           <h1 className="text-3xl font-bold mb-4">Pending Approvals</h1>
-          <p className="text-on-surface-variant mb-8">
-            This page is connected to `GET /api/auth/pending-approvals` and
-            `PATCH /api/auth/users/:userId/approval`.
-          </p>
 
           {state.loading && <p>Loading pending registrations...</p>}
           {state.error && (
