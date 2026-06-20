@@ -2,6 +2,7 @@ const { StatusCodes } = require("http-status-codes");
 const prisma = require("../config/prisma");
 const asyncHandler = require("../utils/asyncHandler");
 const ApiError = require("../utils/apiError");
+const { notifyClaimCreated } = require("../services/notificationService");
 const { creditCompletedOrderWallets } = require("../services/walletService");
 const { matchFoodListings } = require("../utils/matchingEngine");
 
@@ -419,6 +420,12 @@ const createOrder = asyncHandler(async (req, res) => {
         },
       });
     }
+
+    await notifyClaimCreated(tx, {
+      order,
+      customer: req.user,
+      listings,
+    });
 
     return order;
   });
