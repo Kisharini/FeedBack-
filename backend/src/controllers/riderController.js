@@ -2,6 +2,10 @@ const { StatusCodes } = require("http-status-codes");
 const prisma = require("../config/prisma");
 const asyncHandler = require("../utils/asyncHandler");
 const ApiError = require("../utils/apiError");
+const {
+  notifyOrderStatusReminder,
+  notifyRiderAcceptedOrder,
+} = require("../services/notificationService");
 
 const ACTIVE_RIDER_STATUSES = ["RIDER_ASSIGNED", "OUT_FOR_DELIVERY", "DELIVERED"];
 
@@ -205,7 +209,7 @@ const acceptJob = asyncHandler(async (req, res) => {
       );
     }
 
-    return tx.order.update({
+    const acceptedOrder = await tx.order.update({
       where: {
         id: order.id,
       },
@@ -222,6 +226,9 @@ const acceptJob = asyncHandler(async (req, res) => {
       },
       include: getBaseOrderInclude(),
     });
+
+    await notifyRiderAcceptedOrder(tx, acceptedOrder);
+    return acceptedOrder;
   });
 
   return res.status(StatusCodes.OK).json({
@@ -272,18 +279,23 @@ const updateJobStatus = asyncHandler(async (req, res) => {
   }
 
   const now = new Date();
-  const updatedOrder = await prisma.order.update({
-    where: {
-      id: order.id,
-    },
-    data: {
-      status: transition.nextStatus,
-      trackingLatitude: typeof latitude === "number" ? latitude : order.trackingLatitude,
-      trackingLongitude: typeof longitude === "number" ? longitude : order.trackingLongitude,
-      trackingMessage: transition.message,
-      deliveredAt: transition.nextStatus === "DELIVERED" ? now : order.deliveredAt,
-    },
-    include: getBaseOrderInclude(),
+  const updatedOrder = await prisma.$transaction(async (tx) => {
+    const nextOrder = await tx.order.update({
+      where: {
+        id: order.id,
+      },
+      data: {
+        status: transition.nextStatus,
+        trackingLatitude: typeof latitude === "number" ? latitude : order.trackingLatitude,
+        trackingLongitude: typeof longitude === "number" ? longitude : order.trackingLongitude,
+        trackingMessage: transition.message,
+        deliveredAt: transition.nextStatus === "DELIVERED" ? now : order.deliveredAt,
+      },
+      include: getBaseOrderInclude(),
+    });
+
+    await notifyOrderStatusReminder(tx, nextOrder, transition.nextStatus);
+    return nextOrder;
   });
 
   return res.status(StatusCodes.OK).json({
