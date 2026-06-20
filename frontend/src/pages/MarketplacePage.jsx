@@ -58,13 +58,15 @@ export default function MarketplacePage() {
       setState((current) => ({ ...current, loading: true, error: "" }));
 
       try {
+        const calculatedMaxPrice = 
+         currentUser.role === "INDIVIDUAL" && filters.maxPrice
+              ? Math.round(Number(filters.maxPrice) * 100)
+              : undefined;
+
         const response = await fetchListings({
           search: filters.search,
           location: filters.location,
-          maxPrice:
-            currentUser.role === "INDIVIDUAL" && filters.maxPrice
-              ? Number(filters.maxPrice) * 100
-              : undefined,
+          maxPrice: calculatedMaxPrice,
         });
 
         setState({
