@@ -1,0 +1,7 @@
+ALTER TABLE "listings"
+ADD COLUMN "pickupLatitude" DOUBLE PRECISION,
+ADD COLUMN "pickupLongitude" DOUBLE PRECISION;
+
+ALTER TABLE "orders"
+ADD COLUMN "deliveryLatitude" DOUBLE PRECISION,
+ADD COLUMN "deliveryLongitude" DOUBLE PRECISION;

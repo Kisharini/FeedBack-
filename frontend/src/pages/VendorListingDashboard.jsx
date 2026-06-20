@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
+import AddressAutocompleteField from "../components/AddressAutocompleteField";
 import Navbar from "../components/Navbar";
+import WalletPanel from "../components/WalletPanel";
 import { getCurrentUserFromStorage } from "../lib/auth";
 import { apiRequest } from "../lib/api";
+import { fetchWalletSummary } from "../lib/wallet";
 import { navigateTo } from "../lib/navigation";
 
 function RemoteFoodImage({ src, alt, className, fallbackClassName = "" }) {
@@ -31,6 +34,10 @@ export default function VendorListingDashboard() {
   const [currentUser] = useState(() => getCurrentUserFromStorage());
   const [listings, setListings] = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
+  const [wallet, setWallet] = useState({
+    balance: { amount: 0, formatted: "RM 0.00" },
+    transactions: [],
+  });
   const [listingImageFile, setListingImageFile] = useState(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
   const [state, setState] = useState({
@@ -48,9 +55,43 @@ export default function VendorListingDashboard() {
     unitPrice: "",
     quantity: "1",
     location: currentUser?.location || "",
+    pickupLatitude: "",
+    pickupLongitude: "",
     expiryHours: "4",
     imageUrl: "",
   });
+
+  const loadVendorData = async () => {
+    try {
+      const [listingData, vendorOrdersResponse] = await Promise.all([
+        apiRequest("/vendor/listings", { method: "GET" }),
+        apiRequest("/vendor/orders", { method: "GET" }),
+      ]);
+
+      // SAFE FALLBACK EXTRACTION MATCHING YOUR BACKEND ARCHITECTURE
+      const listingsArray = listingData?.listings || listingData?.data?.listings || [];
+      const ordersArray = vendorOrdersResponse?.orders || vendorOrdersResponse?.data?.orders || [];
+
+      setListings(listingsArray);
+      setRecentOrders(ordersArray.slice(0, 3));
+    } catch (err) {
+      console.error("Data streams connection sync error:", err.message);
+    }
+
+    try {
+      const walletResponse = await fetchWalletSummary();
+      setWallet(walletResponse?.data || {
+        balance: { amount: 0, formatted: "RM 0.00" },
+        transactions: [],
+      });
+    } catch (walletError) {
+      console.error("Failed to load vendor wallet:", walletError.message);
+      setWallet({
+        balance: { amount: 0, formatted: "RM 0.00" },
+        transactions: [],
+      });
+    }
+  };
 
   // Security Gate & Data Fetching
   useEffect(() => {
@@ -63,20 +104,10 @@ export default function VendorListingDashboard() {
       return;
     }
 
-    const fetchVendorData = async () => {
-      try {
-        const [listingData, vendorOrdersResponse] = await Promise.all([
-          apiRequest("/vendor/listings", { method: "GET" }),
-          apiRequest("/vendor/orders", { method: "GET" }),
-        ]);
+    loadVendorData();
 
-        setListings(listingData?.data?.listings || []);
-        setRecentOrders(vendorOrdersResponse?.data?.orders?.slice(0, 3) || []);
-      } catch (err) {
-        console.error("Could not load existing inventory streams:", err);
-      }
-    };
-    fetchVendorData();
+    const intervalId = window.setInterval(loadVendorData, 15000);
+    return () => window.clearInterval(intervalId);
   }, [currentUser]);
 
   useEffect(() => {
@@ -114,6 +145,8 @@ export default function VendorListingDashboard() {
       new Date(Date.now() + Number(formData.expiryHours) * 60 * 60 * 1000).toISOString()
     );
     payload.append("location", formData.location.trim());
+    payload.append("pickupLatitude", formData.pickupLatitude);
+    payload.append("pickupLongitude", formData.pickupLongitude);
 
     if (formData.imageUrl.trim()) {
       payload.append("imageUrl", formData.imageUrl.trim());
@@ -137,6 +170,8 @@ export default function VendorListingDashboard() {
       });
 
       setState((prev) => ({ ...prev, submitting: false, success: true }));
+      
+      // Clear data fields correctly
       setFormData({
         title: "",
         description: "",
@@ -145,25 +180,22 @@ export default function VendorListingDashboard() {
         unitPrice: "",
         quantity: "1",
         location: currentUser?.location || "",
+        pickupLatitude: "",
+        pickupLongitude: "",
         expiryHours: "4",
         imageUrl: "",
       });
       setListingImageFile(null);
 
-      // Refresh side panel live view listings array list automatically
-      const [updatedData, vendorOrdersResponse] = await Promise.all([
-        apiRequest("/vendor/listings", { method: "GET" }),
-        apiRequest("/vendor/orders", { method: "GET" }),
-      ]);
-      setListings(updatedData?.data?.listings || []);
-      setRecentOrders(vendorOrdersResponse?.data?.orders?.slice(0, 3) || []);
+      // Instantly trigger re-pull so the right sidebar panel reflects items right away
+      await loadVendorData();
 
       setTimeout(() => setState((prev) => ({ ...prev, success: false })), 4000);
     } catch (err) {
       setState((prev) => ({
         ...prev,
         submitting: false,
-        error: err.message || "Failed to broadcast listing. Verify inputs.",
+        error: err.message || "Failed to publish listing. Verify the details and try again.",
       }));
     }
   };
@@ -187,10 +219,10 @@ export default function VendorListingDashboard() {
                   </span>
                 </div>
                 <h1 className="font-display text-[clamp(1.8rem,3vw,2.4rem)] leading-tight text-[#1d3720]">
-                  Vendor Control Space
+                  Vendor Dashboard
                 </h1>
                 <p className="mt-2 text-sm text-[#53604a]">
-                  Publish surplus stock instantly below or manage ongoing regional rescue options on the right sidebar panel.
+                  Publish surplus stock below and manage your current listings, wallet activity, and recent orders from one place.
                 </p>
               </div>
               <div className="hidden md:block">
@@ -205,7 +237,7 @@ export default function VendorListingDashboard() {
           {state.success && (
             <div className="rounded-2xl bg-green-50 border border-green-100 p-4 text-green-800 text-sm flex items-center gap-2 font-medium">
               <span className="material-symbols-outlined text-green-600">check_circle</span>
-              Listing successfully published to the live feed!
+              Listing published successfully.
             </div>
           )}
           {state.error && (
@@ -214,6 +246,14 @@ export default function VendorListingDashboard() {
               {state.error}
             </div>
           )}
+
+          <WalletPanel
+            title="Vendor Wallet"
+            subtitle="Completed paid orders automatically credit your wallet. Donation-only orders will not add vendor earnings."
+            wallet={wallet}
+            onWalletUpdated={setWallet}
+            accentClassName="bg-[#fff4df] text-[#8c5d17] border-[#f0d9b3]"
+          />
 
           {/* Core Input Creation Form Panel */}
           <form onSubmit={handleSubmit} className="rounded-[2.5rem] border border-surface-container-high bg-white p-8 shadow-level-1 space-y-6">
@@ -275,10 +315,32 @@ export default function VendorListingDashboard() {
                 <input required={formData.type === "DISCOUNTED"} disabled={formData.type === "DONATION"} type="number" min="0" step="0.01" name="unitPrice" value={formData.type === "DONATION" ? "" : formData.unitPrice} onChange={handleInputChange} placeholder={formData.type === "DONATION" ? "0.00 (Free)" : "12.00"} className={`rounded-xl border px-4 py-2.5 outline-none ${formData.type === "DONATION" ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-[#fbfdf7] focus:border-[#f2994a]"}`} />
               </label>
 
-              <label className="flex flex-col gap-1 sm:col-span-2">
-                <span className="text-xs font-bold uppercase text-[#576455]">Pickup Location Details</span>
-                <input required name="location" value={formData.location} onChange={handleInputChange} className="rounded-xl border border-[#d8e2d2] bg-[#fbfdf7] px-4 py-2.5 outline-none focus:border-[#f2994a]" placeholder="Specific floor, room counter info..." />
-              </label>
+              <AddressAutocompleteField
+                className="sm:col-span-2"
+                label="Pickup Location Details"
+                required
+                value={formData.location}
+                onValueChange={(nextValue) =>
+                  setFormData((current) => ({
+                    ...current,
+                    location: nextValue,
+                    pickupLatitude: "",
+                    pickupLongitude: "",
+                  }))
+                }
+                onLocationSelect={(location) =>
+                  setFormData((current) => ({
+                    ...current,
+                    location: location?.address || current.location,
+                    pickupLatitude:
+                      typeof location?.latitude === "number" ? String(location.latitude) : "",
+                    pickupLongitude:
+                      typeof location?.longitude === "number" ? String(location.longitude) : "",
+                  }))
+                }
+                placeholder="Search the exact vendor pickup address"
+                hint="Selecting a suggestion saves exact pickup coordinates for rider navigation."
+              />
 
               <label className="flex flex-col gap-1 sm:col-span-2">
                 <span className="text-xs font-bold uppercase text-[#576455]">Upload Food Image</span>
@@ -327,7 +389,7 @@ export default function VendorListingDashboard() {
               Your Live Stock
             </h3>
             {listings.length === 0 ? (
-              <p className="text-xs text-[#687664] py-4 text-center">No active batch inventory broadcasting currently.</p>
+              <p className="text-xs text-[#687664] py-4 text-center">No active listings at the moment.</p>
             ) : (
               <div className="space-y-3 max-h-[250px] overflow-y-auto pr-1">
                 {listings.map((item, idx) => (
@@ -358,7 +420,7 @@ export default function VendorListingDashboard() {
           {/* Active Requests Tracking Widget */}
           <div className="rounded-[2rem] border border-surface-container-high bg-white p-6 shadow-level-1">
             <h3 className="font-sans text-md font-bold text-[#1d3720] border-b border-[#edf3e4] pb-2 mb-4">
-              Recent Rescue Claims
+              Recent Orders
             </h3>
             {recentOrders.length === 0 ? (
               <p className="text-xs text-[#687664] py-4 text-center">
@@ -374,10 +436,10 @@ export default function VendorListingDashboard() {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-xs font-bold text-[#1d301e]">
-                          {order.customer.name}
+                          {order.customer?.name || "Customer"}
                         </p>
                         <p className="mt-1 text-[11px] text-[#687664]">
-                          {order.customer.role} · {order.vendorItemCount} item{order.vendorItemCount === 1 ? "" : "s"}
+                          {order.customer?.role || "USER"} · {order.vendorItemCount} item{order.vendorItemCount === 1 ? "" : "s"}
                         </p>
                       </div>
                       <span className="rounded-full bg-[#eef7e3] px-2 py-0.5 text-[10px] font-bold text-primary">
@@ -385,7 +447,7 @@ export default function VendorListingDashboard() {
                       </span>
                     </div>
                     <p className="mt-2 text-[11px] text-[#4f5d4b]">
-                      {order.vendorSubtotal.formatted} · {new Date(order.createdAt).toLocaleDateString()}
+                      {order.vendorSubtotal?.formatted || "RM 0.00"} · {new Date(order.createdAt).toLocaleDateString()}
                     </p>
                   </div>
                 ))}

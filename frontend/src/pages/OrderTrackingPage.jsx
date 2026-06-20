@@ -3,12 +3,8 @@ import L from "leaflet";
 import { MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from "react-leaflet";
 import Navbar from "../components/Navbar";
 import { getCurrentUserFromStorage } from "../lib/auth";
-import {
-  advanceMockOrder,
-  confirmPickupOrder,
-  fetchOrderById,
-  fetchOrders,
-} from "../lib/marketplace";
+import { confirmPickupOrder, fetchOrderById, fetchOrders } from "../lib/marketplace";
+import { fetchDrivingRoute, geocodeAddress } from "../lib/location";
 import { navigateTo } from "../lib/navigation";
 
 const formatMoney = (moneyValue) => moneyValue?.formatted || "RM 0.00";
@@ -17,9 +13,9 @@ const statusCopy = {
   PAYMENT_CONFIRMED: "Payment Confirmed",
   READY_FOR_PICKUP: "Ready For Pickup",
   FINDING_RIDER: "Finding Rider",
-  RIDER_ASSIGNED: "Rider Assigned",
+  RIDER_ASSIGNED: "Rider Heading To Pickup",
   OUT_FOR_DELIVERY: "Out For Delivery",
-  DELIVERED: "Delivered",
+  DELIVERED: "Rider Arrived",
   COMPLETED: "Completed",
 };
 
@@ -33,17 +29,6 @@ const orderedStatuses = [
   "COMPLETED",
 ];
 
-const autoProgressDelayMs = {
-  READY_FOR_PICKUP: 6000,
-  FINDING_RIDER: 3000,
-  RIDER_ASSIGNED: 4500,
-  OUT_FOR_DELIVERY: 5000,
-  DELIVERED: 2500,
-};
-
-// ========================================================
-// LEAFLET MAP CUSTOM ICON MARKERS
-// ========================================================
 const vendorIcon = L.divIcon({
   className: "delivery-map-marker-shell",
   html: '<div class="delivery-map-marker delivery-map-marker-vendor" style="border-color: #16a34a;"><span class="material-symbols-outlined" style="color: #16a34a;">storefront</span></div>',
@@ -65,82 +50,46 @@ const destinationIcon = L.divIcon({
   iconAnchor: [21, 21],
 });
 
-const hashString = (value) =>
-  value.split("").reduce((sum, character, index) => sum + character.charCodeAt(0) * (index + 1), 0);
-
-const buildDeliveryMapData = (order) => {
-  const seed = hashString(order.id);
-  const baseLat = 3.139 + ((seed % 120) - 60) * 0.00008;
-  const baseLng = 101.6869 + ((Math.floor(seed / 3) % 120) - 60) * 0.00008;
-
-  const riderStart = [baseLat - 0.0042, baseLng - 0.0048];
-  const vendor = [baseLat - 0.0012, baseLng - 0.0015];
-  const waypointOne = [baseLat + 0.0015, baseLng + 0.0007];
-  const waypointTwo = [baseLat + 0.0033, baseLng + 0.003];
-  const destination = [baseLat + 0.0052, baseLng + 0.0054];
-
-  return {
-    riderStart,
-    vendor,
-    waypointOne,
-    waypointTwo,
-    destination,
-    route: [vendor, waypointOne, waypointTwo, destination],
-    bounds: [riderStart, vendor, waypointOne, waypointTwo, destination],
-  };
-};
-
-const getStatusPath = (mapData, status) => {
-  if (status === "FINDING_RIDER") {
-    return [mapData.riderStart, mapData.vendor];
-  }
-  if (status === "RIDER_ASSIGNED") {
-    return [mapData.vendor, mapData.waypointOne];
-  }
-  if (status === "OUT_FOR_DELIVERY") {
-    return [mapData.waypointOne, mapData.waypointTwo, mapData.destination];
-  }
-  return [mapData.destination];
-};
-
-const interpolateCoordinates = (start, end, progress) => [
-  start[0] + (end[0] - start[0]) * progress,
-  start[1] + (end[1] - start[1]) * progress,
-];
-
-const interpolateAlongPath = (path, progress) => {
-  if (!path?.length) return null;
-  if (path.length === 1) return path[0];
-
-  const segmentCount = path.length - 1;
-  const scaledProgress = Math.min(progress, 1) * segmentCount;
-  const segmentIndex = Math.min(Math.floor(scaledProgress), segmentCount - 1);
-  const segmentProgress = scaledProgress - segmentIndex;
-
-  return interpolateCoordinates(path[segmentIndex], path[segmentIndex + 1], segmentProgress);
-};
-
-const getAutomationLabel = (order, updating) => {
-  if (!order) return "";
-  if (order.status === "COMPLETED") return "Order Completed";
-  if (order.deliveryOption === "SELF_PICKUP") return updating ? "Confirming Pickup..." : "Pickup Awaiting Confirmation";
-  return "Live Delivery Polling";
-};
+const getPickupAddress = (order) => order?.items?.[0]?.listing?.location || "Pickup location unavailable";
+const getDropoffAddress = (order) => order?.deliveryAddress || "Drop-off location unavailable";
+const getPickupCoordinatesFromOrder = (order) =>
+  typeof order?.items?.[0]?.listing?.pickupLatitude === "number" &&
+  typeof order?.items?.[0]?.listing?.pickupLongitude === "number"
+    ? {
+        latitude: order.items[0].listing.pickupLatitude,
+        longitude: order.items[0].listing.pickupLongitude,
+      }
+    : null;
+const getDropoffCoordinatesFromOrder = (order) =>
+  typeof order?.deliveryLatitude === "number" && typeof order?.deliveryLongitude === "number"
+    ? {
+        latitude: order.deliveryLatitude,
+        longitude: order.deliveryLongitude,
+      }
+    : null;
 
 const getEtaLabel = (order) => {
   if (!order) return "--";
-  if (order.status === "FINDING_RIDER") return "8 min";
-  if (order.status === "RIDER_ASSIGNED") return "6 min";
-  if (order.status === "OUT_FOR_DELIVERY") return "3 min";
-  if (order.status === "DELIVERED") return "Arrived";
+  if (order.status === "FINDING_RIDER") return "Awaiting rider";
+  if (order.status === "RIDER_ASSIGNED") return "Heading to vendor";
+  if (order.status === "OUT_FOR_DELIVERY") return "On the way";
+  if (order.status === "DELIVERED") return "Rider arrived";
   if (order.status === "COMPLETED") return "Completed";
-  if (order.status === "READY_FOR_PICKUP") return "Ready soon";
+  if (order.status === "READY_FOR_PICKUP") return "Preparing";
   return "--";
 };
 
-// ========================================================
-// MAIN EXPORT COMPONENT: ORDER TRACKING PAGE
-// ========================================================
+const getStatusRouteHeadline = (order) => {
+  if (!order) return "";
+  if (order.deliveryOption === "SELF_PICKUP") return "Self pickup route";
+  if (order.status === "FINDING_RIDER") return "Searching for an available rider";
+  if (order.status === "RIDER_ASSIGNED") return "Rider is heading to the pickup point";
+  if (order.status === "OUT_FOR_DELIVERY") return "Rider is carrying your order";
+  if (order.status === "DELIVERED") return "Rider has arrived at your drop-off point";
+  if (order.status === "COMPLETED") return "Order completed";
+  return "Delivery route";
+};
+
 export default function OrderTrackingPage({ orderId = null }) {
   const [currentUser] = useState(() => getCurrentUserFromStorage());
   const [state, setState] = useState({
@@ -150,7 +99,9 @@ export default function OrderTrackingPage({ orderId = null }) {
     selectedOrder: null,
     updating: false,
   });
-  const [riderPosition, setRiderPosition] = useState(null);
+  const [pickupCoordinates, setPickupCoordinates] = useState(null);
+  const [dropoffCoordinates, setDropoffCoordinates] = useState(null);
+  const [routePoints, setRoutePoints] = useState([]);
 
   const applyUpdatedOrder = (updatedOrder) => {
     setState((current) => ({
@@ -158,9 +109,7 @@ export default function OrderTrackingPage({ orderId = null }) {
       updating: false,
       error: "",
       selectedOrder: updatedOrder,
-      orders: current.orders.map((order) =>
-        order.id === updatedOrder.id ? updatedOrder : order
-      ),
+      orders: current.orders.map((order) => (order.id === updatedOrder.id ? updatedOrder : order)),
     }));
   };
 
@@ -212,118 +161,119 @@ export default function OrderTrackingPage({ orderId = null }) {
     loadOrders();
   }, [currentUser, orderId]);
 
-  // REAL TIME DATABASE POLL ENGINES
   useEffect(() => {
     if (!state.selectedOrder || state.selectedOrder.status === "COMPLETED") {
       return undefined;
     }
 
-    const pollInterval = setInterval(async () => {
+    const pollInterval = window.setInterval(async () => {
       try {
         const response = await fetchOrderById(state.selectedOrder.id);
-        const freshlyPolledOrder = response.data.order;
+        const refreshedOrder = response.data.order;
 
         setState((current) => ({
           ...current,
-          selectedOrder: freshlyPolledOrder,
-          orders: current.orders.map((o) =>
-            o.id === freshlyPolledOrder.id ? freshlyPolledOrder : o
-          ),
+          selectedOrder: refreshedOrder,
+          orders: current.orders.map((order) => (order.id === refreshedOrder.id ? refreshedOrder : order)),
         }));
       } catch (pollError) {
-        console.error("Tracking telemetry dropped frame sync:", pollError.message);
+        console.error("Failed to refresh order tracking:", pollError.message);
       }
-    }, 5000); 
+    }, 5000);
 
-    return () => clearInterval(pollInterval);
+    return () => window.clearInterval(pollInterval);
   }, [state.selectedOrder?.id, state.selectedOrder?.status]);
 
-  // TIMELINE STEP INTERPOLATOR CALCULATIONS
   useEffect(() => {
+    let cancelled = false;
+
     if (!state.selectedOrder || state.selectedOrder.deliveryOption !== "DELIVERY") {
-      setRiderPosition(null);
+      setPickupCoordinates(null);
+      setDropoffCoordinates(null);
       return undefined;
     }
 
-    const mapData = buildDeliveryMapData(state.selectedOrder);
-    const path = getStatusPath(mapData, state.selectedOrder.status);
+    const loadStops = async () => {
+      const savedPickup = getPickupCoordinatesFromOrder(state.selectedOrder);
+      const savedDropoff = getDropoffCoordinatesFromOrder(state.selectedOrder);
 
-    if (!path?.length) {
-      setRiderPosition(null);
-      return undefined;
-    }
-
-    if (path.length === 1) {
-      setRiderPosition(path[0]);
-      return undefined;
-    }
-
-    const duration = autoProgressDelayMs[state.selectedOrder.status] || 4000;
-    const frameDuration = 80;
-    const totalFrames = Math.max(1, Math.round(duration / frameDuration));
-    let frame = 0;
-
-    setRiderPosition(path[0]);
-
-    const intervalId = window.setInterval(() => {
-      frame += 1;
-      const progress = Math.min(frame / totalFrames, 1);
-      setRiderPosition(interpolateAlongPath(path, progress));
-
-      if (progress >= 1) {
-        window.clearInterval(intervalId);
+      if (savedPickup && savedDropoff) {
+        setPickupCoordinates(savedPickup);
+        setDropoffCoordinates(savedDropoff);
+        return;
       }
-    }, frameDuration);
 
-    return () => window.clearInterval(intervalId);
-  }, [state.selectedOrder?.deliveryOption, state.selectedOrder?.id, state.selectedOrder?.status]);
+      const [pickup, dropoff] = await Promise.all([
+        savedPickup || geocodeAddress(getPickupAddress(state.selectedOrder)),
+        savedDropoff || geocodeAddress(getDropoffAddress(state.selectedOrder)),
+      ]);
+
+      if (!cancelled) {
+        setPickupCoordinates(pickup);
+        setDropoffCoordinates(dropoff);
+      }
+    };
+
+    loadStops();
+    return () => {
+      cancelled = true;
+    };
+  }, [state.selectedOrder]);
 
   useEffect(() => {
-    if (
-      !state.selectedOrder ||
-      state.selectedOrder.deliveryOption !== "DELIVERY" ||
-      state.selectedOrder.status === "COMPLETED" ||
-      state.updating
-    ) {
-      return undefined;
-    }
+    let cancelled = false;
 
-    const delayMs = autoProgressDelayMs[state.selectedOrder.status];
-
-    if (!delayMs) {
-      return undefined;
-    }
-
-    const timeoutId = window.setTimeout(async () => {
-      try {
-        setState((current) => ({ ...current, updating: true, error: "" }));
-        const response = await advanceMockOrder(state.selectedOrder.id);
-        applyUpdatedOrder(response.data.order);
-      } catch (error) {
-        setState((current) => ({
-          ...current,
-          updating: false,
-          error: error.message,
-        }));
+    const loadRoute = async () => {
+      if (
+        !state.selectedOrder ||
+        state.selectedOrder.deliveryOption !== "DELIVERY" ||
+        !pickupCoordinates ||
+        !dropoffCoordinates
+      ) {
+        setRoutePoints([]);
+        return;
       }
-    }, delayMs);
 
-    return () => window.clearTimeout(timeoutId);
-  }, [
-    state.selectedOrder?.deliveryOption,
-    state.selectedOrder?.id,
-    state.selectedOrder?.status,
-    state.updating,
-  ]);
+      if (state.selectedOrder.status === "FINDING_RIDER") {
+        setRoutePoints([]);
+        return;
+      }
+
+      const riderCoordinates =
+        state.selectedOrder.tracking?.latitude && state.selectedOrder.tracking?.longitude
+          ? {
+              latitude: state.selectedOrder.tracking.latitude,
+              longitude: state.selectedOrder.tracking.longitude,
+            }
+          : null;
+
+      if (!riderCoordinates) {
+        setRoutePoints([]);
+        return;
+      }
+
+      const destination =
+        state.selectedOrder.status === "RIDER_ASSIGNED" ? pickupCoordinates : dropoffCoordinates;
+      const route = await fetchDrivingRoute(riderCoordinates, destination);
+
+      if (!cancelled) {
+        setRoutePoints(route);
+      }
+    };
+
+    loadRoute();
+    return () => {
+      cancelled = true;
+    };
+  }, [dropoffCoordinates, pickupCoordinates, state.selectedOrder]);
 
   const isCompletedOrder = state.selectedOrder?.status === "COMPLETED";
   const canConfirmPickup =
     state.selectedOrder?.deliveryOption === "SELF_PICKUP" &&
     state.selectedOrder?.status !== "COMPLETED";
-  const deliveryMapData =
-    state.selectedOrder?.deliveryOption === "DELIVERY"
-      ? buildDeliveryMapData(state.selectedOrder)
-      : null;
+  const canConfirmDelivery =
+    state.selectedOrder?.deliveryOption === "DELIVERY" &&
+    state.selectedOrder?.status === "DELIVERED";
 
   return (
     <div className="min-h-screen bg-background text-on-background font-body-md antialiased">
@@ -333,7 +283,7 @@ export default function OrderTrackingPage({ orderId = null }) {
           <button
             type="button"
             onClick={() => navigateTo("/marketplace")}
-            className="group flex items-center gap-2 rounded-full border border-[#dde6cf] bg-white px-5 py-2.5 text-sm font-medium text-[#445441] shadow-sm transition-all hover:bg-[#f4f8ee] hover:border-[#cbdbb7]"
+            className="group flex items-center gap-2 rounded-full border border-[#dde6cf] bg-white px-5 py-2.5 text-sm font-medium text-[#445441] shadow-sm transition-all hover:border-[#cbdbb7] hover:bg-[#f4f8ee]"
           >
             <span className="material-symbols-outlined text-lg transition-transform group-hover:-translate-x-0.5">arrow_back</span>
             Browse more food
@@ -348,9 +298,9 @@ export default function OrderTrackingPage({ orderId = null }) {
           </button>
         </div>
 
-        <section className="grid gap-8 items-stretch lg:grid-cols-[22rem_1fr] xl:grid-cols-[24rem_1fr]">
-          <div className="flex flex-col h-full rounded-3xl border border-[#e7eddc] bg-white p-5 shadow-sm">
-            <div className="pb-4 border-b border-[#edf1e6]">
+        <section className="grid items-stretch gap-8 lg:grid-cols-[22rem_1fr] xl:grid-cols-[24rem_1fr]">
+          <div className="flex h-full flex-col rounded-3xl border border-[#e7eddc] bg-white p-5 shadow-sm">
+            <div className="border-b border-[#edf1e6] pb-4">
               <p className="font-label-md text-xs font-bold uppercase tracking-[0.14em] text-[#70816c]">
                 Track Order Status
               </p>
@@ -358,30 +308,30 @@ export default function OrderTrackingPage({ orderId = null }) {
             </div>
 
             {state.error && (
-              <div className="mt-4 flex items-center gap-2 rounded-xl bg-red-50 p-3.5 text-sm font-medium text-red-700 border border-red-100">
-                <span className="material-symbols-outlined text-lg flex-shrink-0">error</span>
-                <p className="line-clamp-2">{state.error}</p>
+              <div className="mt-4 flex items-center gap-2 rounded-xl border border-red-100 bg-red-50 p-3.5 text-sm font-medium text-red-700">
+                <span className="material-symbols-outlined text-lg">error</span>
+                <p>{state.error}</p>
               </div>
             )}
 
             {state.loading ? (
-              <div className="mt-4 space-y-3 overflow-y-auto pr-1 flex-1">
+              <div className="mt-4 space-y-3 overflow-y-auto pr-1">
                 {Array.from({ length: 3 }).map((_, index) => (
                   <div key={index} className="h-[104px] animate-pulse rounded-2xl border border-[#edf0e6] bg-[#fafcf8]" />
                 ))}
               </div>
             ) : state.orders.length === 0 ? (
-              <div className="mt-6 flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#d7dfcb] bg-[#fcfdf9] px-4 py-12 text-center flex-1">
+              <div className="mt-6 flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-[#d7dfcb] bg-[#fcfdf9] px-4 py-12 text-center">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#eef7df] text-primary">
                   <span className="material-symbols-outlined text-2xl">receipt</span>
                 </div>
                 <p className="mt-4 text-base font-bold text-[#243523]">No orders yet</p>
-                <p className="mt-1 text-sm text-[#5f6d5b] max-w-[200px] mx-auto">
+                <p className="mt-1 max-w-[200px] text-sm text-[#5f6d5b]">
                   Once you complete payment, your orders will appear here.
                 </p>
               </div>
             ) : (
-              <div className="mt-4 space-y-3 overflow-y-auto pr-1 custom-scrollbar flex-1 max-h-[65vh]">
+              <div className="mt-4 max-h-[65vh] flex-1 space-y-3 overflow-y-auto pr-1 custom-scrollbar">
                 {state.orders.map((order) => {
                   const isSelected = state.selectedOrder?.id === order.id;
                   return (
@@ -395,18 +345,18 @@ export default function OrderTrackingPage({ orderId = null }) {
                       className={`w-full rounded-2xl border p-4 text-left transition-all duration-200 ${
                         isSelected
                           ? "border-primary bg-[#f4faea] shadow-sm ring-1 ring-primary/20"
-                          : "border-[#ebefdf] bg-[#fbfdf8] hover:bg-white hover:border-[#d2dbbf] hover:shadow-sm"
+                          : "border-[#ebefdf] bg-[#fbfdf8] hover:border-[#d2dbbf] hover:bg-white hover:shadow-sm"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <p className="text-sm font-bold text-[#253824]">Order #{order.id.slice(-6)}</p>
                           <p className="mt-0.5 text-xs text-[#5c6b59]">
-                            {order.items.length} item{order.items.length > 1 ? "s" : ""} &bull;{" "}
+                            {order.items.length} item{order.items.length > 1 ? "s" : ""} •{" "}
                             {order.deliveryOption === "DELIVERY" ? "Delivery" : "Self pickup"}
                           </p>
                         </div>
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap bg-white border border-[#ebefdf] text-[#476846] ${isSelected ? "border-primary/20 shadow-sm" : ""}`}>
+                        <span className="inline-flex items-center rounded-full border border-[#ebefdf] bg-white px-2.5 py-0.5 text-xs font-semibold text-[#476846]">
                           {statusCopy[order.status]}
                         </span>
                       </div>
@@ -421,54 +371,67 @@ export default function OrderTrackingPage({ orderId = null }) {
             )}
           </div>
 
-          <div className="rounded-3xl border border-[#dfe7d4] bg-[linear-gradient(180deg,#ffffff_0%,#f8fcf2_100%)] p-5 sm:p-6 shadow-sm h-full flex flex-col justify-between">
+          <div className="flex h-full flex-col justify-between rounded-3xl border border-[#dfe7d4] bg-[linear-gradient(180deg,#ffffff_0%,#f8fcf2_100%)] p-5 shadow-sm sm:p-6">
             {!state.selectedOrder ? (
-              <div className="flex h-full min-h-[400px] flex-col items-center justify-center text-center text-[#60705d] flex-1">
-                <span className="material-symbols-outlined text-4xl text-[#70816c]/60 animate-bounce">map</span>
+              <div className="flex min-h-[400px] flex-1 flex-col items-center justify-center text-center text-[#60705d]">
+                <span className="material-symbols-outlined animate-bounce text-4xl text-[#70816c]/60">map</span>
                 <p className="mt-3 font-medium">Select an order to view detailed tracking information.</p>
               </div>
             ) : (
-              <div className="space-y-6 flex-1 flex flex-col justify-between">
-                <div className="flex flex-col gap-4 rounded-2xl border border-[#edf1e4] bg-white p-5 sm:flex-row sm:items-center sm:justify-between shadow-sm">
+              <div className="flex flex-1 flex-col space-y-6">
+                <div className="flex flex-col gap-4 rounded-2xl border border-[#edf1e4] bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#72806b]">Selected Order</p>
                     <h2 className="mt-0.5 text-xl font-bold text-[#213722]">Order #{state.selectedOrder.id.slice(-6)}</h2>
                     <p className="text-sm text-[#5e6f5b]">
-                      Handling via{" "}
-                      <span className="font-semibold text-[#3d523e]">
-                        {state.selectedOrder.deliveryOption === "DELIVERY" ? "Delivery Dispatch" : "Self Pickup Route"}
-                      </span>
+                      {getStatusRouteHeadline(state.selectedOrder)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 self-start rounded-xl border border-[#d8e6cf] bg-[#f4faea] px-3.5 py-2 text-xs font-bold text-[#2d5b2f] sm:self-center">
                     <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#2d5b2f] opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#2d5b2f]"></span>
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#2d5b2f] opacity-75" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-[#2d5b2f]" />
                     </span>
-                    {getAutomationLabel(state.selectedOrder, state.updating)}
+                    {state.selectedOrder.tracking?.message || statusCopy[state.selectedOrder.status]}
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-[#edf1e4] bg-white p-5 shadow-sm overflow-hidden">
-                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#72806b] mb-6">Delivery Milestone</p>
-                  <div className="relative flex items-start justify-between w-full px-2">
-                    <div className="absolute left-6 right-6 top-[14px] h-1 bg-[#edf1e6] -z-10 rounded-full" />
-                    <div 
-                      className="absolute left-6 top-[14px] h-1 bg-[#476846] -z-10 rounded-full transition-all duration-500 ease-out"
-                      style={{ width: `calc(${(orderedStatuses.indexOf(state.selectedOrder.status) / (orderedStatuses.length - 1)) * 100}% - 12px)` }}
+                <div className="overflow-hidden rounded-2xl border border-[#edf1e4] bg-white p-5 shadow-sm">
+                  <p className="mb-6 text-xs font-bold uppercase tracking-[0.12em] text-[#72806b]">Delivery Milestone</p>
+                  <div className="relative flex w-full items-start justify-between px-2">
+                    <div className="absolute left-6 right-6 top-[14px] -z-10 h-1 rounded-full bg-[#edf1e6]" />
+                    <div
+                      className="absolute left-6 top-[14px] -z-10 h-1 rounded-full bg-[#476846] transition-all duration-500 ease-out"
+                      style={{
+                        width: `calc(${(orderedStatuses.indexOf(state.selectedOrder.status) / (orderedStatuses.length - 1)) * 100}% - 12px)`,
+                      }}
                     />
                     {orderedStatuses.map((statusKey, index) => {
                       const currentActiveIndex = orderedStatuses.indexOf(state.selectedOrder.status);
                       const isPast = index < currentActiveIndex;
                       const isCurrent = index === currentActiveIndex;
                       return (
-                        <div key={statusKey} className="flex flex-col items-center flex-1 relative">
-                          <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 transition-all duration-300 z-10 ${
-                            isPast ? "bg-[#476846] border-[#476846] text-white" : isCurrent ? "bg-white border-[#476846] text-[#476846] scale-110 shadow-md ring-4 ring-[#f4faea]" : "bg-white border-[#edf1e6] text-[#b2beb0]"
-                          }`}>
-                            {isPast ? <span className="material-symbols-outlined text-sm font-bold">check</span> : <span className="text-xs font-bold">{index + 1}</span>}
+                        <div key={statusKey} className="relative flex flex-1 flex-col items-center">
+                          <div
+                            className={`z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all duration-300 ${
+                              isPast
+                                ? "border-[#476846] bg-[#476846] text-white"
+                                : isCurrent
+                                  ? "scale-110 border-[#476846] bg-white text-[#476846] shadow-md ring-4 ring-[#f4faea]"
+                                  : "border-[#edf1e6] bg-white text-[#b2beb0]"
+                            }`}
+                          >
+                            {isPast ? (
+                              <span className="material-symbols-outlined text-sm font-bold">check</span>
+                            ) : (
+                              <span className="text-xs font-bold">{index + 1}</span>
+                            )}
                           </div>
-                          <span className={`mt-3 hidden text-[11px] font-bold tracking-tight text-center sm:block max-w-[84px] mx-auto transition-colors duration-200 ${isCurrent ? "text-[#213722] font-extrabold" : isPast ? "text-[#4b5749]" : "text-[#9cb098]"}`}>
+                          <span
+                            className={`mx-auto mt-3 hidden max-w-[84px] text-center text-[11px] font-bold tracking-tight transition-colors duration-200 sm:block ${
+                              isCurrent ? "font-extrabold text-[#213722]" : isPast ? "text-[#4b5749]" : "text-[#9cb098]"
+                            }`}
+                          >
                             {statusCopy[statusKey]}
                           </span>
                         </div>
@@ -483,7 +446,7 @@ export default function OrderTrackingPage({ orderId = null }) {
                 <div className="grid gap-3 sm:grid-cols-3">
                   <StatusCard icon="payments" label="Payment Method" value={state.selectedOrder.paymentMethod} />
                   <StatusCard icon="receipt_long" label="Order Total" value={formatMoney(state.selectedOrder.totalAmount)} />
-                  <StatusCard icon="schedule" label="Paid At" value={new Date(state.selectedOrder.paidAt).toLocaleString([], {hour: '2-digit', minute:'2-digit', year: 'numeric', month: 'short', day: 'numeric'})} />
+                  <StatusCard icon="schedule" label="Status" value={getEtaLabel(state.selectedOrder)} />
                 </div>
 
                 {state.selectedOrder.deliveryOption === "SELF_PICKUP" ? (
@@ -538,64 +501,94 @@ export default function OrderTrackingPage({ orderId = null }) {
                             </div>
                             <div className="flex justify-between">
                               <span className="text-[#70816c]">Phone</span>
-                              <span className="font-semibold text-[#243824]">{state.selectedOrder.rider.phoneNumber}</span>
+                              <span className="font-semibold text-[#243824]">{state.selectedOrder.rider.phoneNumber || "--"}</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-[#70816c]">Vehicle</span>
-                              <span className="font-semibold text-[#243824]">{state.selectedOrder.rider.vehicle}</span>
+                              <span className="font-semibold text-[#243824]">{state.selectedOrder.rider.vehicle || "--"}</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-[#70816c]">Plate</span>
-                              <span className="font-semibold text-[#243824] tracking-wider bg-[#f4faea] px-2 py-0.5 rounded text-xs border border-[#d8e6cf]">{state.selectedOrder.rider.plateNumber}</span>
+                              <span className="rounded border border-[#d8e6cf] bg-[#f4faea] px-2 py-0.5 text-xs font-semibold tracking-wider text-[#243824]">
+                                {state.selectedOrder.rider.plateNumber || "--"}
+                              </span>
                             </div>
                           </div>
                         ) : (
-                          <p className="mt-4 text-sm leading-relaxed text-[#5f6d5b]">Waiting for dispatch confirmation from logistics platform...</p>
+                          <p className="mt-4 text-sm leading-relaxed text-[#5f6d5b]">No rider has accepted this order yet.</p>
                         )}
                       </div>
-                      <div className="mt-6 grid gap-2 grid-cols-3">
+                      <div className="mt-6 grid grid-cols-3 gap-2">
                         <MiniStat label="ETA" value={getEtaLabel(state.selectedOrder)} />
                         <MiniStat label="Mode" value="Live" />
-                        <MiniStat label="Route" value="OSM" />
+                        <MiniStat label="Route" value="Leaflet" />
                       </div>
                     </div>
 
-                    {deliveryMapData && (
-                      <DeliveryLeafletMap
-                        order={state.selectedOrder}
-                        mapData={deliveryMapData}
-                        riderPosition={riderPosition}
-                        isCompletedOrder={isCompletedOrder}
-                      />
-                    )}
+                    <DeliveryMap
+                      order={state.selectedOrder}
+                      pickupCoordinates={pickupCoordinates}
+                      dropoffCoordinates={dropoffCoordinates}
+                      routePoints={routePoints}
+                    />
                   </div>
                 )}
 
-                <div className="rounded-2xl border border-[#e8eedc] bg-white p-5 shadow-sm mt-2">
-                  <p className="text-sm font-bold text-[#214021] mb-3.5 flex items-center gap-2">
+                {canConfirmDelivery && (
+                  <div className="rounded-2xl border border-[#d7e4cd] bg-[#f7fbf1] p-5 shadow-sm">
+                    <p className="text-sm font-bold text-[#1d3720]">Confirm delivery receipt</p>
+                    <p className="mt-2 text-sm text-[#5f6d5b]">
+                      Your rider has arrived. Once you have received the food, mark the order as completed.
+                    </p>
+                    <button
+                      type="button"
+                      disabled={state.updating}
+                      onClick={async () => {
+                        try {
+                          setState((current) => ({ ...current, updating: true, error: "" }));
+                          const response = await confirmPickupOrder(state.selectedOrder.id);
+                          applyUpdatedOrder(response.data.order);
+                        } catch (error) {
+                          setState((current) => ({
+                            ...current,
+                            updating: false,
+                            error: error.message,
+                          }));
+                        }
+                      }}
+                      className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#f59b27] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">verified</span>
+                      {state.updating ? "Confirming..." : "Mark As Received"}
+                    </button>
+                  </div>
+                )}
+
+                <div className="mt-2 rounded-2xl border border-[#e8eedc] bg-white p-5 shadow-sm">
+                  <p className="mb-3.5 flex items-center gap-2 text-sm font-bold text-[#214021]">
                     <span className="material-symbols-outlined text-lg text-[#5f6d5b]">restaurant_menu</span>
                     Items Ordered ({state.selectedOrder.items.length})
                   </p>
-                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
+                  <div className="max-h-40 space-y-2 overflow-y-auto pr-1 custom-scrollbar">
                     {state.selectedOrder.items.map((item) => (
                       <div key={item.id} className="flex items-center justify-between gap-4 rounded-xl border border-[#edf1e4] bg-[#fbfdf8] p-3.5 transition-colors hover:bg-white">
                         <div className="min-w-0">
-                          <p className="font-bold text-sm text-[#213822] truncate">{item.title}</p>
+                          <p className="truncate text-sm font-bold text-[#213822]">{item.title}</p>
                           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[#5f6d5b]">
-                            <span className={`font-semibold ${item.type === "DISCOUNTED" ? "text-amber-700 bg-amber-50" : "text-emerald-700 bg-emerald-50"} px-1.5 py-0.5 rounded`}>
+                            <span className={`rounded px-1.5 py-0.5 font-semibold ${item.type === "DISCOUNTED" ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>
                               {item.type === "DISCOUNTED" ? "Discounted Surplus" : "Donation Batch"}
                             </span>
-                            <span>&bull;</span>
+                            <span>•</span>
                             <span className="font-medium">Qty {item.quantity}</span>
                             {item.listing?.location && (
                               <>
-                                <span>&bull;</span>
+                                <span>•</span>
                                 <span className="truncate max-w-[140px] sm:max-w-none">{item.listing.location}</span>
                               </>
                             )}
                           </div>
                         </div>
-                        <p className="text-sm font-bold text-[#213822] flex-shrink-0">{formatMoney(item.lineTotal)}</p>
+                        <p className="flex-shrink-0 text-sm font-bold text-[#213822]">{formatMoney(item.lineTotal)}</p>
                       </div>
                     ))}
                   </div>
@@ -609,62 +602,72 @@ export default function OrderTrackingPage({ orderId = null }) {
   );
 }
 
-// ========================================================
-// RE-REALIZED: MODULAR REAL-TIME OPENSTREETMAP INTERFACE
-// ========================================================
-function DeliveryLeafletMap({ order, mapData, riderPosition, isCompletedOrder }) {
+function DeliveryMap({ order, pickupCoordinates, dropoffCoordinates, routePoints }) {
+  const riderCoordinates =
+    order?.tracking?.latitude && order?.tracking?.longitude
+      ? [order.tracking.latitude, order.tracking.longitude]
+      : null;
+  const points = [
+    riderCoordinates,
+    pickupCoordinates ? [pickupCoordinates.latitude, pickupCoordinates.longitude] : null,
+    dropoffCoordinates ? [dropoffCoordinates.latitude, dropoffCoordinates.longitude] : null,
+  ].filter(Boolean);
+
   return (
-    <div className="rounded-2xl border border-[#d9e4f3] bg-[linear-gradient(180deg,#f5fbff_0%,#edf7ff_100%)] p-4 shadow-sm flex flex-col justify-between h-full min-h-[340px]">
-      <div className="flex-1 flex flex-col">
-        <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#19435b]">Real-Time Delivery Route</p>
-        <div className="mt-2 overflow-hidden rounded-xl border border-[#d9e8f3] bg-white p-1.5 shadow-sm flex-1 relative min-h-[220px]">
+    <div className="flex min-h-[340px] flex-col justify-between rounded-2xl border border-[#d9e4f3] bg-[linear-gradient(180deg,#f5fbff_0%,#edf7ff_100%)] p-4 shadow-sm">
+      <div className="flex flex-1 flex-col">
+        <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#19435b]">Real Delivery Route</p>
+        <div className="relative mt-2 min-h-[220px] flex-1 overflow-hidden rounded-xl border border-[#d9e8f3] bg-white p-1.5 shadow-sm">
           <MapContainer
-            className="delivery-leaflet-map h-full w-full rounded-lg absolute inset-0"
-            scrollWheelZoom={true}
-            zoomControl={true}
-            style={{ height: "100%", width: "100%" }}
+            className="absolute inset-0 h-full w-full rounded-lg"
+            scrollWheelZoom
+            zoom={13}
+            center={points[0] || [3.139, 101.6869]}
           >
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
-            <MapViewportUpdater points={mapData.bounds} orderId={order.id} />
+            <MapViewportUpdater points={points} orderId={order.id} />
 
-            <Polyline
-              positions={[mapData.riderStart, mapData.vendor]}
-              pathOptions={{ color: "#70a8e6", weight: 3, dashArray: "6 10", opacity: 0.7 }}
-            />
-            <Polyline
-              positions={mapData.route}
-              pathOptions={{ color: "#1d77d4", weight: 5, opacity: 0.9, lineCap: "round", lineJoin: "round" }}
-            />
+            {routePoints.length > 1 && (
+              <Polyline
+                positions={routePoints}
+                pathOptions={{ color: "#1d77d4", weight: 5, opacity: 0.9, lineCap: "round", lineJoin: "round" }}
+              />
+            )}
 
-            <Marker icon={vendorIcon} position={mapData.vendor}>
-              <Tooltip className="delivery-map-tooltip" direction="bottom" offset={[0, 15]} permanent>Vendor Shop</Tooltip>
-            </Marker>
-            <Marker icon={destinationIcon} position={mapData.destination}>
-              <Tooltip className="delivery-map-tooltip" direction="bottom" offset={[0, 15]} permanent>Dropoff Location</Tooltip>
-            </Marker>
-
-            {riderPosition && (
-              <Marker icon={riderIcon} position={riderPosition}>
-                <Tooltip className="delivery-map-tooltip bg-primary text-white font-semibold" direction="top" offset={[0, -15]} permanent={isCompletedOrder}>
-                  {isCompletedOrder ? "Package Delivered" : "Rider (En Route)"}
+            {pickupCoordinates && (
+              <Marker icon={vendorIcon} position={[pickupCoordinates.latitude, pickupCoordinates.longitude]}>
+                <Tooltip direction="bottom" offset={[0, 15]} permanent>Vendor Pickup</Tooltip>
+              </Marker>
+            )}
+            {dropoffCoordinates && (
+              <Marker icon={destinationIcon} position={[dropoffCoordinates.latitude, dropoffCoordinates.longitude]}>
+                <Tooltip direction="bottom" offset={[0, 15]} permanent>Drop-Off</Tooltip>
+              </Marker>
+            )}
+            {riderCoordinates && (
+              <Marker icon={riderIcon} position={riderCoordinates}>
+                <Tooltip direction="top" offset={[0, -15]} permanent={order.status === "DELIVERED"}>
+                  {order.status === "DELIVERED" ? "Rider Arrived" : "Rider Live Location"}
                 </Tooltip>
               </Marker>
             )}
           </MapContainer>
         </div>
       </div>
-      <div className="mt-3 rounded-xl bg-white/70 p-3 text-xs leading-relaxed text-[#35556a] border border-[#d9e4f3]/60">
+      <div className="mt-3 rounded-xl border border-[#d9e4f3]/60 bg-white/70 p-3 text-xs leading-relaxed text-[#35556a]">
         <div className="flex items-center gap-1.5 font-bold text-[#19435b]">
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
           </span>
-          <p>{order.tracking?.message || "Connected to telemetry distribution engine."}</p>
+          <p>{order.tracking?.message || "Waiting for live rider updates."}</p>
         </div>
-        <p className="mt-1 text-[11px] text-[#5a7c94]">Map layout updates positioning vectors as updates stream from the rider's device.</p>
+        <p className="mt-1 text-[11px] text-[#5a7c94]">
+          Route guidance follows the assigned rider once they accept the order.
+        </p>
       </div>
     </div>
   );
@@ -672,13 +675,16 @@ function DeliveryLeafletMap({ order, mapData, riderPosition, isCompletedOrder })
 
 function MapViewportUpdater({ points, orderId }) {
   const map = useMap();
+
   useEffect(() => {
     if (!map || !points || points.length === 0) return;
-    setTimeout(() => {
+
+    window.setTimeout(() => {
       map.invalidateSize();
       map.fitBounds(points, { padding: [32, 32], maxZoom: 16, animate: true, duration: 0.8 });
     }, 150);
   }, [map, orderId, points]);
+
   return null;
 }
 
@@ -689,7 +695,7 @@ function StatusCard({ icon, label, value }) {
         <span className="material-symbols-outlined text-[16px]">{icon}</span>
         <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
       </div>
-      <p className="mt-1.5 text-sm font-bold text-[#253724] truncate">{value}</p>
+      <p className="mt-1.5 truncate text-sm font-bold text-[#253724]">{value}</p>
     </div>
   );
 }

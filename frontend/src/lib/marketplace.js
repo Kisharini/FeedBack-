@@ -95,16 +95,6 @@ export const fetchOrders = () => runCachedGet("/marketplace/orders", 5000);
 export const fetchOrderById = (orderId) =>
   runCachedGet(`/marketplace/orders/${orderId}`, 3000);
 
-export const advanceMockOrder = (orderId) =>
-  jsonRequest(`/marketplace/orders/${orderId}/mock-progress`, {
-    method: "POST",
-    body: {},
-    ...withToken(),
-  }).then((response) => {
-    clearMarketplaceCache();
-    return response;
-  });
-
 export const confirmPickupOrder = (orderId) =>
   jsonRequest(`/marketplace/orders/${orderId}/confirm-pickup`, {
     method: "POST",

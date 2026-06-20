@@ -83,6 +83,7 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
       riderLicenseDocumentPublicId: true,
       riderVehicleGrantUrl: true,
       riderVehicleGrantPublicId: true,
+      walletBalance: true,
     },
   });
 

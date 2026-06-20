@@ -5,6 +5,15 @@ const authMiddleware = require("../middleware/authMiddleware");
 const { uploadBufferToCloudinary } = require("../config/cloudinary");
 const { uploadListingImage } = require("../middleware/uploadMiddleware");
 
+const parseOptionalCoordinate = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  const parsedValue = Number(value);
+  return Number.isFinite(parsedValue) ? parsedValue : null;
+};
+
 // GET all listings
 router.get("/", async (req, res, next) => {
   try {
@@ -20,7 +29,18 @@ router.get("/", async (req, res, next) => {
 // POST a new listing
 router.post("/", authMiddleware, uploadListingImage, async (req, res, next) => {
   try {
-    const { title, description, type, quantity, unitPrice, expiryAt, location, imageUrl } = req.body;
+    const {
+      title,
+      description,
+      type,
+      quantity,
+      unitPrice,
+      expiryAt,
+      location,
+      pickupLatitude,
+      pickupLongitude,
+      imageUrl,
+    } = req.body;
     
     const activeUserId = req.user?.id; 
 
@@ -30,6 +50,8 @@ router.post("/", authMiddleware, uploadListingImage, async (req, res, next) => {
 
     const parsedQuantity = parseInt(quantity, 10);
     const parsedUnitPrice = type === "DISCOUNTED" ? parseInt(unitPrice, 10) : null;
+    const parsedPickupLatitude = parseOptionalCoordinate(pickupLatitude);
+    const parsedPickupLongitude = parseOptionalCoordinate(pickupLongitude);
 
     if (isNaN(parsedQuantity)){
       return res.status(400).json({ error: "Validation Error: Quantity must be a valid number" });
@@ -58,6 +80,8 @@ router.post("/", authMiddleware, uploadListingImage, async (req, res, next) => {
         unitPrice: parsedUnitPrice,
         expiryAt: new Date(expiryAt),
         location,
+        pickupLatitude: parsedPickupLatitude,
+        pickupLongitude: parsedPickupLongitude,
         imageUrl: resolvedImageUrl,
         vendorId: activeUserId,
       },
@@ -74,7 +98,18 @@ router.put("/:id", authMiddleware, uploadListingImage, async (req, res, next) =>
   try{
     const { id } = req.params;
     const activeUserId = req.user?.id;
-    const { title, description, type, quantity, unitPrice, expiryAt, location, imageUrl } = req.body;
+    const {
+      title,
+      description,
+      type,
+      quantity,
+      unitPrice,
+      expiryAt,
+      location,
+      pickupLatitude,
+      pickupLongitude,
+      imageUrl,
+    } = req.body;
 
     if (!activeUserId){
       return res.status(401).json({ error: "Unauthorized: Missing vendor authentication token" });
@@ -92,6 +127,10 @@ router.put("/:id", authMiddleware, uploadListingImage, async (req, res, next) =>
 
     const parsedQuantity = quantity !== undefined ? parseInt(quantity, 10) : undefined;
     const parsedUnitPrice = type === "DISCOUNTED" ? parseInt(unitPrice, 10) : (type && type !== "DISCOUNTED" ? null : undefined);
+    const parsedPickupLatitude =
+      pickupLatitude !== undefined ? parseOptionalCoordinate(pickupLatitude) : undefined;
+    const parsedPickupLongitude =
+      pickupLongitude !== undefined ? parseOptionalCoordinate(pickupLongitude) : undefined;
 
     if (parsedQuantity !== undefined && isNaN(parsedQuantity)){
       return res.status(400).json({ error: "Validation Error: Quantity must be a valid number" });
@@ -116,6 +155,8 @@ router.put("/:id", authMiddleware, uploadListingImage, async (req, res, next) =>
         ...(parsedUnitPrice !== undefined && { unitPrice: parsedUnitPrice }),
         ...(expiryAt && { expiryAt: new Date(expiryAt) }),
         location,
+        ...(parsedPickupLatitude !== undefined && { pickupLatitude: parsedPickupLatitude }),
+        ...(parsedPickupLongitude !== undefined && { pickupLongitude: parsedPickupLongitude }),
         ...(resolvedImageUrl !== undefined && { imageUrl: resolvedImageUrl || null }),
       },
     });

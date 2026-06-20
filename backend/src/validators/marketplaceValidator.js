@@ -3,6 +3,7 @@ const { z } = require("zod");
 const recipientRoles = ["INDIVIDUAL", "NGO"];
 const deliveryOptions = ["DELIVERY", "SELF_PICKUP"];
 const paymentMethods = ["FPX", "TOUCH_N_GO", "GRABPAY", "BOOST", "SHOPEEPAY"];
+const riderOrderStatuses = ["OUT_FOR_DELIVERY", "DELIVERED"];
 
 const listingFiltersSchema = z.object({
   body: z.object({}).optional(),
@@ -33,12 +34,25 @@ const checkoutSchema = z.object({
     deliveryOption: z.enum(deliveryOptions),
     paymentMethod: z.enum(paymentMethods),
     deliveryAddress: z.string().trim().min(10).max(300).optional(),
+    deliveryLatitude: z.number().min(-90).max(90).optional(),
+    deliveryLongitude: z.number().min(-180).max(180).optional(),
   }).superRefine((body, ctx) => {
     if (body.deliveryOption === "DELIVERY" && !body.deliveryAddress) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["deliveryAddress"],
         message: "Delivery address is required when delivery is selected",
+      });
+    }
+
+    const hasDeliveryLatitude = typeof body.deliveryLatitude === "number";
+    const hasDeliveryLongitude = typeof body.deliveryLongitude === "number";
+
+    if (hasDeliveryLatitude !== hasDeliveryLongitude) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: hasDeliveryLatitude ? ["deliveryLongitude"] : ["deliveryLatitude"],
+        message: "Delivery coordinates must include both latitude and longitude",
       });
     }
   }),
@@ -54,11 +68,48 @@ const orderParamsSchema = z.object({
   query: z.object({}).optional(),
 });
 
+const riderAcceptOrderSchema = z.object({
+  body: z.object({
+    latitude: z.number().min(-90).max(90).optional(),
+    longitude: z.number().min(-180).max(180).optional(),
+  }).optional(),
+  params: z.object({
+    orderId: z.string().trim().min(1, "Order id is required"),
+  }),
+  query: z.object({}).optional(),
+});
+
+const riderStatusUpdateSchema = z.object({
+  body: z.object({
+    status: z.enum(riderOrderStatuses),
+    latitude: z.number().min(-90).max(90).optional(),
+    longitude: z.number().min(-180).max(180).optional(),
+  }),
+  params: z.object({
+    orderId: z.string().trim().min(1, "Order id is required"),
+  }),
+  query: z.object({}).optional(),
+});
+
+const riderLocationUpdateSchema = z.object({
+  body: z.object({
+    latitude: z.number().min(-90).max(90, "Latitude is invalid"),
+    longitude: z.number().min(-180).max(180, "Longitude is invalid"),
+  }),
+  params: z.object({
+    orderId: z.string().trim().min(1, "Order id is required"),
+  }),
+  query: z.object({}).optional(),
+});
+
 module.exports = {
   listingFiltersSchema,
   listingParamsSchema,
   checkoutSchema,
   orderParamsSchema,
+  riderAcceptOrderSchema,
+  riderStatusUpdateSchema,
+  riderLocationUpdateSchema,
   recipientRoles,
   deliveryOptions,
   paymentMethods,

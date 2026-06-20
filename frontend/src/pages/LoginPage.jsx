@@ -76,6 +76,11 @@ export default function LoginPage() {
       return;
     }
 
+    if (authData.user.role === "RIDER") {
+      navigateTo("/rider/dashboard");
+      return;
+    }
+
     navigateTo("/me");
   };
 

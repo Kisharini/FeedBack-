@@ -5,6 +5,7 @@ const authMiddleware = require("../middleware/authMiddleware");
 const allowRoles = require("../middleware/roleMiddleware");
 const validateRequest = require("../middleware/validateRequest");
 const { orderParamsSchema } = require("../validators/marketplaceValidator");
+const { creditCompletedOrderWallets } = require("../services/walletService");
 
 const router = express.Router();
 
@@ -65,6 +66,16 @@ router.get("/orders", async (req, res, next) => {
             role: true,
           },
         },
+        rider: {
+          select: {
+            id: true,
+            name: true,
+            riderPhoneNumber: true,
+            riderVehicleType: true,
+            riderVehicleName: true,
+            riderVehiclePlateNumber: true,
+          },
+        },
         items: {
           where: {
             listing: {
@@ -76,6 +87,8 @@ router.get("/orders", async (req, res, next) => {
               select: {
                 id: true,
                 location: true,
+                pickupLatitude: true,
+                pickupLongitude: true,
                 imageUrl: true,
                 expiryAt: true,
                 vendorId: true,
@@ -102,7 +115,34 @@ router.get("/orders", async (req, res, next) => {
         paidAt: order.paidAt,
         updatedAt: order.updatedAt,
         deliveryAddress: order.deliveryAddress,
+        deliveryLatitude: order.deliveryLatitude,
+        deliveryLongitude: order.deliveryLongitude,
         pickupInstructions: order.pickupInstructions,
+        rider: order.rider
+          ? {
+              id: order.rider.id,
+              name: order.rider.name,
+              phoneNumber: order.rider.riderPhoneNumber,
+              vehicle: [order.rider.riderVehicleType, order.rider.riderVehicleName]
+                .filter(Boolean)
+                .join(" ")
+                .trim(),
+              plateNumber: order.rider.riderVehiclePlateNumber,
+            }
+          : null,
+        tracking: order.trackingLatitude && order.trackingLongitude
+          ? {
+              latitude: order.trackingLatitude,
+              longitude: order.trackingLongitude,
+              message: order.trackingMessage,
+            }
+          : order.trackingMessage
+            ? {
+                latitude: null,
+                longitude: null,
+                message: order.trackingMessage,
+              }
+            : null,
         totalAmount: toMoney(order.totalAmount),
         vendorSubtotal: toMoney(vendorSubtotal),
         vendorItemCount,
@@ -124,6 +164,8 @@ router.get("/orders", async (req, res, next) => {
             ? {
                 id: item.listing.id,
                 location: item.listing.location,
+                pickupLatitude: item.listing.pickupLatitude,
+                pickupLongitude: item.listing.pickupLongitude,
                 imageUrl: item.listing.imageUrl,
                 expiryAt: item.listing.expiryAt,
               }
@@ -162,6 +204,13 @@ router.post(
             },
           },
         },
+        include: {
+          items: {
+            include: {
+              listing: true,
+            },
+          },
+        },
       });
 
       if (!order) {
@@ -186,17 +235,29 @@ router.post(
       }
 
       const now = new Date();
-      const updatedOrder = await prisma.order.update({
-        where: {
-          id: order.id,
-        },
-        data: {
-          status: "COMPLETED",
-          deliveredAt: order.deliveredAt || now,
-          completedAt: now,
-          trackingMessage:
-            "Pickup confirmed by the vendor. The order has been completed successfully.",
-        },
+      const updatedOrder = await prisma.$transaction(async (tx) => {
+        const completedOrder = await tx.order.update({
+          where: {
+            id: order.id,
+          },
+          data: {
+            status: "COMPLETED",
+            deliveredAt: order.deliveredAt || now,
+            completedAt: now,
+            trackingMessage:
+              "Pickup confirmed by the vendor. The order has been completed successfully.",
+          },
+          include: {
+            items: {
+              include: {
+                listing: true,
+              },
+            },
+          },
+        });
+
+        await creditCompletedOrderWallets(tx, completedOrder);
+        return completedOrder;
       });
 
       return res.status(StatusCodes.OK).json({
