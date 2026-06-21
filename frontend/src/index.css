@@ -89,8 +89,6 @@
     linear-gradient(180deg, rgba(38, 66, 24, 0.12) 0%, rgba(38, 66, 24, 0.22) 100%),
     linear-gradient(135deg, rgba(154, 216, 114, 0.2) 0%, rgba(255, 160, 46, 0.16) 100%);
 }
-<<<<<<< HEAD
-=======
 
 .delivery-leaflet-map {
   background:
@@ -230,4 +228,3 @@
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   border: 2px solid #1d77d4;
 }
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f

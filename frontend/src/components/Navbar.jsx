@@ -1,8 +1,5 @@
 import logo from "../assets/logo.png";
-<<<<<<< HEAD
-=======
 import NotificationBell from "./NotificationBell";
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
 import { clearAuth, getCurrentUserFromStorage } from "../lib/auth";
 import { navigateTo } from "../lib/navigation";
 
@@ -38,8 +35,7 @@ export default function Navbar() {
         <div className="flex flex-wrap items-center justify-end gap-3">
           {currentUser ? (
             <>
-<<<<<<< HEAD
-=======
+
               <NotificationBell />
 
               {/* Individual and NGO Public View Controls */}
@@ -115,8 +111,6 @@ export default function Navbar() {
                   </button>
                 </>
               )}
-
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
               <button
                 type="button"
                 onClick={() => navigateTo("/me")}
@@ -124,10 +118,6 @@ export default function Navbar() {
               >
                 My Account
               </button>
-<<<<<<< HEAD
-=======
-
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
               {currentUser.role === "ADMIN" && (
                 <button
                   type="button"
@@ -137,10 +127,7 @@ export default function Navbar() {
                   Approvals
                 </button>
               )}
-<<<<<<< HEAD
-=======
 
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
               <button
                 type="button"
                 onClick={handleLogout}

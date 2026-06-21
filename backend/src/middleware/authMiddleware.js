@@ -7,67 +7,45 @@ const asyncHandler = require("../utils/asyncHandler");
 const authMiddleware = asyncHandler(async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
-<<<<<<< HEAD
+  // Check Authorization header
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     throw new ApiError(StatusCodes.UNAUTHORIZED, "Authorization token is required");
   }
 
-  const token = authHeader.split(" ")[1];
-  const decoded = verifyToken(token);
-
-  const user = await prisma.user.findUnique({
-    where: { id: decoded.sub },
-=======
-  // Check Authorization header
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    throw new ApiError(
-      StatusCodes.UNAUTHORIZED,
-      "Authorization token is required"
-    );
-  }
-
   // Extract token
   const token = authHeader.split(" ")[1];
-
   let decoded;
 
   try {
     decoded = verifyToken(token);
-
     console.log("Decoded JWT:", decoded);
   } catch (error) {
-    return res.status(StatusCodes.UNAUTHORIZED).json({
-      error: "Invalid or expired token",
-    });
+    throw new ApiError(StatusCodes.UNAUTHORIZED, "Invalid or expired token");
   }
 
-  const userId = decoded.sub;
-
+  const userId = decoded?.sub;
   if (!userId) {
-    return res.status(StatusCodes.UNAUTHORIZED).json({
-      error: "Invalid token payload",
-    });
+    throw new ApiError(StatusCodes.UNAUTHORIZED, "Invalid token payload");
   }
 
+  // Fetch the full profile from database
   const user = await prisma.user.findUnique({
     where: {
       id: userId,
     },
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
     select: {
       id: true,
       name: true,
       email: true,
       role: true,
       approvalStatus: true,
-<<<<<<< HEAD
-=======
       approvalNotes: true,
       approvedAt: true,
       createdAt: true,
       updatedAt: true,
+      walletBalance: true, // Retained wallet balance support cleanly
 
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
+      // NGO Fields
       ngoOrganizationName: true,
       ngoRegistrationNumber: true,
       ngoContactPhone: true,
@@ -77,10 +55,8 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
       ngoSsmDocumentPublicId: true,
       ngoSupportingDocUrls: true,
       ngoSupportingDocPublicIds: true,
-<<<<<<< HEAD
-=======
 
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
+      // Vendor Fields
       vendorBusinessName: true,
       vendorRegistrationNumber: true,
       vendorPlaceAddress: true,
@@ -88,10 +64,8 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
       vendorDescription: true,
       vendorSsmDocumentUrl: true,
       vendorSsmDocumentPublicId: true,
-<<<<<<< HEAD
-=======
 
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
+      // Rider Fields
       riderLicenseNumber: true,
       riderPhoneNumber: true,
       riderVehicleType: true,
@@ -104,33 +78,15 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
       riderLicenseDocumentPublicId: true,
       riderVehicleGrantUrl: true,
       riderVehicleGrantPublicId: true,
-<<<<<<< HEAD
-      approvalNotes: true,
-      approvedAt: true,
-      createdAt: true,
-      updatedAt: true
-    }
+    },
   });
 
   if (!user) {
     throw new ApiError(StatusCodes.UNAUTHORIZED, "User associated with token no longer exists");
   }
 
+  // Attach processed user context to the request pipeline
   req.user = user;
-=======
-      walletBalance: true,
-    },
-  });
-
-  if (!user) {
-    return res.status(StatusCodes.UNAUTHORIZED).json({
-      error: "User associated with token no longer exists",
-    });
-  }
-
-  req.user = user;
-
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
   next();
 });
 

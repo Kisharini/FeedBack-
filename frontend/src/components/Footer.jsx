@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-=======
 import { navigateTo } from "../lib/navigation";
-
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
 export default function Footer() {
   return (
     <footer className="relative z-10 mt-10 border-t border-[#e8eddc] bg-[linear-gradient(180deg,#fafbf7_0%,#f5f7f1_100%)] py-12">
@@ -16,7 +12,6 @@ export default function Footer() {
         </div>
 
         <div className="flex flex-wrap justify-center gap-8 text-sm font-semibold text-[#5d685d]">
-<<<<<<< HEAD
           <a href="#" className="transition-colors duration-300 hover:text-[#4f9218]">
             Privacy Policy
           </a>
@@ -29,7 +24,7 @@ export default function Footer() {
           <a href="#" className="transition-colors duration-300 hover:text-[#4f9218]">
             Partner With Us
           </a>
-=======
+
           <button type="button" onClick={() => navigateTo("/privacy-policy")} className="transition-colors duration-300 hover:text-[#4f9218]">
             Privacy Policy
           </button>
@@ -42,7 +37,6 @@ export default function Footer() {
           <button type="button" onClick={() => navigateTo("/partner-with-us")} className="transition-colors duration-300 hover:text-[#4f9218]">
             Partner With Us
           </button>
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
         </div>
       </div>
     </footer>

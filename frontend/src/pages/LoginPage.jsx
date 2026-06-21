@@ -1,4 +1,3 @@
-import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useEffect, useRef, useState } from "react";
 import logo from "../assets/logo.png";
 import { jsonRequest } from "../lib/api";
@@ -59,7 +58,6 @@ export default function LoginPage() {
   const finishAuth = (authData, successMessage) => {
     saveAuth(authData);
     console.log("Auth Data Received from Server:", authData);
-    saveAuth(authData);
     console.log("Token in LocalStorage right after save:", localStorage.getItem("token"));
     setMessage(successMessage);
 
@@ -106,8 +104,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleCredential = useEffectEvent(async (credential) => {
-  // Replaced experimental useEffectEvent with a stable standard handler function
   const handleGoogleCredential = async (credential) => {
     if (!credential) {
       setError("Google sign-in was cancelled. Please try again.");
@@ -132,7 +128,6 @@ export default function LoginPage() {
     }
   };
 
-  // Capture the credential handler dynamic reference safely for the initialization lifecycle
   const handleGoogleCredentialRef = useRef(handleGoogleCredential);
   useEffect(() => {
     handleGoogleCredentialRef.current = handleGoogleCredential;
@@ -151,22 +146,17 @@ export default function LoginPage() {
       }
 
       googleButtonRef.current.innerHTML = "";
-      window.google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: ({ credential }) => {
-          handleGoogleCredential(credential);
-        },
-      });
 
-      if (!window.__google_initialized){
-      window.google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: ({ credential }) => {
-          handleGoogleCredentialRef.current(credential);
-        },
-      });
-      window.__google_initialized = true
-    }
+      if (!window.__google_initialized) {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: ({ credential }) => {
+            handleGoogleCredentialRef.current(credential);
+          },
+        });
+        window.__google_initialized = true;
+      }
+
       window.google.accounts.id.renderButton(googleButtonRef.current, {
         theme: "outline",
         size: "large",
@@ -217,7 +207,6 @@ export default function LoginPage() {
       script?.removeEventListener("load", handleLoad);
       script?.removeEventListener("error", handleError);
     };
-  }, [handleGoogleCredential]);
   }, []);
 
   return (
@@ -255,6 +244,7 @@ export default function LoginPage() {
       </header>
 
       <main className="mx-auto flex max-w-7xl flex-col gap-12 px-6 py-12 lg:h-[calc(100vh-89px)] lg:flex-row lg:items-stretch lg:gap-8 lg:overflow-hidden lg:py-8">
+        {/* Left Side: Hero Information */}
         <div className="hidden w-full lg:sticky lg:top-0 lg:flex lg:h-full lg:w-5/12 lg:flex-col">
           <div
             className="relative flex min-h-[640px] flex-col overflow-hidden rounded-[2.5rem] p-10 shadow-level-3 lg:h-full lg:min-h-0 lg:p-8"
@@ -361,163 +351,9 @@ export default function LoginPage() {
           </div>
         </div>
 
+        {/* Right Side: Cleaned Single Form Panel */}
         <div className={`w-full lg:h-full lg:min-h-0 lg:w-7/12 lg:overflow-y-auto lg:pr-2 ${panelClassName}`}>
           <div className="p-8 md:p-12">
-          <div className="mb-10 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <div>
-              <h2 className="font-h1 text-h1 text-on-surface">Welcome Back</h2>
-              <p className="mt-xs font-body-md text-body-md text-on-surface-variant">
-                Sign in to continue building a sustainable community.
-              </p>
-            </div>
-            <div className="rounded-full border border-[#FFA02E]/30 bg-[#FFA02E]/10 px-4 py-2 font-label-md text-label-md text-primary">
-              Sign In
-            </div>
-          </div>
-
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            <div className="grid grid-cols-1 gap-6">
-              <div className="flex flex-col gap-2">
-                <label className={labelClassName} htmlFor="identifier">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-sm text-on-surface-variant">
-                    <span className="material-symbols-outlined">person</span>
-                  </div>
-                  <input
-                    className={`${fieldClassName} pl-[44px]`}
-                    id="identifier"
-                    name="email"
-                    placeholder="Enter your email"
-                    type="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className={labelClassName} htmlFor="password">
-                  Password
-                </label>
-                <div className="relative">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-sm text-on-surface-variant">
-                    <span className="material-symbols-outlined">lock</span>
-                  </div>
-                  <input
-                    className={`${fieldClassName} pl-[44px] pr-12`}
-                    id="password"
-                    name="password"
-                    placeholder="Enter your password"
-                    type={showPassword ? "text" : "password"}
-                    value={formData.password}
-                    onChange={handleChange}
-                    required
-                  />
-                  <button
-                    onClick={() => setShowPassword((current) => !current)}
-                    className="absolute inset-y-0 right-0 flex items-center pr-sm text-on-surface-variant transition-colors hover:text-primary"
-                    type="button"
-                  >
-                    <span className="material-symbols-outlined">
-                      {showPassword ? "visibility_off" : "visibility"}
-                    </span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {message && (
-              <div className="rounded-xl bg-green-50 px-4 py-3 text-green-700">
-                {message}
-              </div>
-            )}
-
-            {error && (
-              <div className="rounded-xl bg-red-50 px-4 py-3 text-red-700">
-                {error}
-              </div>
-            )}
-
-            <div className="flex items-center justify-between pt-xs">
-              <div className="flex items-center">
-                <input
-                  className="h-5 w-5 cursor-pointer rounded border-outline-variant bg-surface text-primary-container transition-colors focus:ring-primary-container"
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                />
-                <label
-                  className="ml-sm block cursor-pointer font-body-md text-body-md text-on-surface-variant"
-                  htmlFor="remember-me"
-                >
-                  Remember Me
-                </label>
-              </div>
-              <div className="text-sm">
-                <a
-                  className="font-label-md text-label-md text-primary-container transition-colors duration-300 hover:text-primary"
-                  href="#"
-                >
-                  Forgot Password?
-                </a>
-              </div>
-            </div>
-
-            <button
-              className="w-full flex items-center justify-center gap-xs rounded-xl bg-primary-container px-md py-sm font-label-md text-label-md text-on-primary-container border border-transparent border-b-[3px] border-on-primary-container/20 shadow-sm transition-all duration-300 ease-out-back hover:bg-tertiary-fixed-dim hover:-translate-y-[1px] hover:shadow-md active:translate-y-[2px] active:border-b-0 active:mb-[3px]"
-              type="submit"
-              disabled={submitting}
-            >
-              {submitting ? "Logging in..." : "Login"}
-              <span className="material-symbols-outlined text-[18px]">
-                arrow_forward
-              </span>
-            </button>
-          </form>
-
-          {GOOGLE_CLIENT_ID && (
-            <>
-              <div className="relative mb-margin mt-margin">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-outline-variant/40"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="bg-surface-container-lowest px-sm font-caption text-caption uppercase tracking-wider text-on-surface-variant">
-                    Or continue with Google
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-sm">
-                <div className="flex min-h-[44px] items-center justify-center rounded-lg border border-surface-container-high/70 bg-surface px-sm py-sm">
-                  <div ref={googleButtonRef} className="flex w-full justify-center" />
-                </div>
-                {!googleReady && (
-                  <p className="text-center text-xs text-on-surface-variant">
-                    {googleSubmitting
-                      ? "Finishing Google sign-in..."
-                      : "Loading Google sign-in..."}
-                  </p>
-                )}
-              </div>
-            </>
-          )}
-
-          <div className="mt-margin text-center">
-            <p className="font-body-md text-body-md text-on-surface-variant">
-              Don&apos;t have an account?
-              <button
-                type="button"
-                onClick={() => navigateTo("/register")}
-                className="ml-1 font-label-md text-label-md text-primary transition-colors duration-300 hover:text-primary-container"
-              >
-                Sign Up
-              </button>
-            </p>
-          </div>
             <div className="mb-10 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>
                 <h2 className="font-h1 text-h1 text-on-surface">Welcome Back</h2>
@@ -621,7 +457,6 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* CLEANED UP ACTIONS BUTTON CLASSES: Removed duplicate color rules */}
               <button
                 className="w-full flex items-center justify-center gap-xs rounded-xl bg-primary-container px-md py-sm font-label-md text-label-md text-on-primary-container border-2 border-on-primary-container/20 shadow-sm transition-all duration-300 ease-out-back hover:bg-tertiary-fixed-dim hover:border-transparent hover:-translate-y-[1px] hover:shadow-md active:translate-y-[2px]"
                 type="submit"

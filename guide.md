@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # FeedBack App – Full System Context for Development
 
 FeedBack is a multi-role food rescue and affordable food distribution platform. The goal is to reduce food waste by allowing vendors to sell surplus food at discounted prices or donate excess food to verified NGOs. The platform also supports affordable food access for individual recipients and delivery coordination through riders.
@@ -6,7 +5,6 @@ FeedBack is a multi-role food rescue and affordable food distribution platform. 
 ## Core Purpose
 
 The system has two main flows:
-=======
 # FeedBack App - Full System Context
 
 FeedBack was a multi-role food rescue and affordable food distribution platform. The goal was to reduce food waste by allowing vendors to sell surplus food at discounted prices or donate excess food to verified NGOs. The platform also supported affordable food access for individual recipients and delivery coordination through riders.
@@ -14,12 +12,10 @@ FeedBack was a multi-role food rescue and affordable food distribution platform.
 ## Core Purpose
 
 The system had two main flows:
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
 
 1. Affordable food purchase flow for individual recipients.
 2. Food donation flow for NGOs, including instant donations and future food request campaigns.
 
-<<<<<<< HEAD
 The app should avoid mixing role logic too deeply inside separate folders. Backend logic should be structured by feature/module, not by role, because many features involve multiple roles in the same flow.
 
 Example:
@@ -30,7 +26,6 @@ Example:
 ## User Roles
 
 The system has five user roles:
-=======
 The app avoided mixing role logic too deeply inside separate folders. Backend logic was structured by feature or module, not by role, because many features involved multiple roles in the same flow.
 
 Examples:
@@ -41,7 +36,6 @@ Examples:
 ## User Roles
 
 The system had five user roles:
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
 
 - INDIVIDUAL
 - NGO
@@ -49,7 +43,6 @@ The system had five user roles:
 - RIDER
 - ADMIN
 
-<<<<<<< HEAD
 All users register and log in through the same authentication system. After login, users are redirected to their role-specific dashboard.
 
 ## Authentication Flow
@@ -66,7 +59,6 @@ Users registered with basic details and a selected role.
 Basic flow:
 
 Register
-<<<<<<< HEAD
 → Save user in database
 → Login
 → Verify email and password
@@ -459,7 +451,6 @@ Delivery statuses included:
 
 ## Admin Flow
 
-<<<<<<< HEAD
 Admins manage platform safety, verification, and monitoring.
 
 Flow:
@@ -497,8 +488,6 @@ Admin was not involved in every normal transaction, only in verification, monito
 ## Main Feature Modules
 
 The backend was developed module by module in this order:
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
-
 1. Authentication Module
 2. User Profile Module
 3. Food Listing Module
@@ -513,11 +502,8 @@ The backend was developed module by module in this order:
 
 ## Initial Database Design
 
-<<<<<<< HEAD
 Start simple and extend later.
-=======
 The initial design started simple and expanded later.
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
 
 Core tables:
 
@@ -611,11 +597,8 @@ Delivery
 
 ## Important Logic Rule
 
-<<<<<<< HEAD
 Use relatedType and relatedId in Delivery so one delivery system can support multiple cases.
-=======
 The system used `relatedType` and `relatedId` in `Delivery` so one delivery system could support multiple cases.
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
 
 Examples:
 
@@ -628,7 +611,6 @@ relatedId = donationRequestId
 relatedType = FUTURE_REQUEST
 relatedId = futureFoodRequestId
 
-<<<<<<< HEAD
 This avoids creating separate delivery tables for each feature.
 
 ## Listing Types
@@ -640,18 +622,14 @@ This avoided creating separate delivery tables for each feature.
 ## Listing Types
 
 Food listings supported different types:
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
 
 - DISCOUNTED_SALE
 - DONATION
 
-<<<<<<< HEAD
 A discounted listing is for individual recipients.
 A donation listing is for NGOs.
-=======
 A discounted listing was for individual recipients.
 A donation listing was for NGOs.
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
 
 ## Status Examples
 
@@ -689,7 +667,6 @@ VendorOffer status:
 - ACCEPTED
 - REJECTED
 - CANCELLED
-<<<<<<< HEAD
 
 ## Development Principle
 
@@ -712,4 +689,3 @@ Suggested MVP order:
 
 FeedBack is a role-based food rescue and affordable food distribution platform. Vendors provide discounted or donated surplus food. Individual recipients buy affordable food, while verified NGOs claim donations or create future food request campaigns. Vendors can respond to NGO requests, riders manage delivery, and admins monitor the system. The backend should be modular, feature-based, and protected using JWT authentication and role-based access control.
 =======
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f

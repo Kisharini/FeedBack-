@@ -4,6 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum Role {
@@ -56,51 +57,6 @@ enum OrderStatus {
   COMPLETED
 }
 
-<<<<<<< HEAD
-model User {
-  id                        String         @id @default(cuid())
-  name                      String
-  email                     String         @unique
-  password                  String
-  role                      Role
-  approvalStatus            ApprovalStatus @default(APPROVED)
-  ngoOrganizationName       String?
-  ngoRegistrationNumber     String?
-  ngoContactPhone           String?
-  ngoAddress                String?
-  ngoDescription            String?
-  ngoSsmDocumentUrl         String?
-  ngoSsmDocumentPublicId String?
-  ngoSupportingDocUrls      String[]
-  ngoSupportingDocPublicIds String[]
-  vendorBusinessName        String?
-  vendorRegistrationNumber  String?
-  vendorPlaceAddress        String?
-  vendorContactPhone        String?
-  vendorDescription         String?
-  vendorSsmDocumentUrl      String?
-  vendorSsmDocumentPublicId String?
-  riderLicenseNumber        String?
-  riderPhoneNumber          String?
-  riderVehicleType          String?
-  riderVehicleName          String?
-  riderVehiclePlateNumber   String?
-  riderVehicleColor         String?
-  riderAddress              String?
-  riderNotes                String?
-  riderLicenseDocumentUrl   String?
-  riderLicenseDocumentPublicId String?
-  riderVehicleGrantUrl      String?
-  riderVehicleGrantPublicId String?
-  approvalNotes             String?
-  approvedAt                DateTime?
-  createdAt                 DateTime       @default(now())
-  updatedAt                 DateTime       @updatedAt
-  listings                  Listing[]      @relation("VendorListings")
-  claimedListings           Listing[]      @relation("ClaimedListings")
-  orders                    Order[]        @relation("CustomerOrders")
-  riderOrders               Order[]        @relation("AssignedRiderOrders")
-=======
 enum WalletTransactionType {
   ORDER_PAYOUT
   WITHDRAWAL
@@ -114,78 +70,71 @@ enum NotificationType {
   STATUS_UPDATE
 }
 
+// ==========================================
+// MODELS
+// ==========================================
+
 model User {
-  id                           String              @id @default(cuid())
-  name                         String
-  email                        String              @unique
-  password                     String
-  role                         Role
-  approvalStatus               ApprovalStatus      @default(APPROVED)
-  ngoOrganizationName          String?
-  ngoRegistrationNumber        String?
-  ngoContactPhone              String?
-  ngoAddress                   String?
-  ngoDescription               String?
-  ngoSsmDocumentUrl            String?
-  ngoSsmDocumentPublicId       String?
-  ngoSupportingDocUrls         String[]
-  ngoSupportingDocPublicIds    String[]
-  vendorBusinessName           String?
-  vendorRegistrationNumber     String?
-  vendorPlaceAddress           String?
-  vendorContactPhone           String?
-  vendorDescription            String?
-  vendorSsmDocumentUrl         String?
-  vendorSsmDocumentPublicId    String?
-  riderLicenseNumber           String?
-  riderPhoneNumber             String?
-  riderVehicleType             String?
-  riderVehicleName             String?
-  riderVehiclePlateNumber      String?
-  riderVehicleColor            String?
-  riderAddress                 String?
-  riderNotes                   String?
-  riderLicenseDocumentUrl      String?
+  id                        String              @id @default(cuid())
+  name                      String
+  email                     String              @unique
+  password                  String
+  role                      Role
+  approvalStatus            ApprovalStatus      @default(APPROVED)
+  
+  // NGO Profile Fields
+  ngoOrganizationName       String?
+  ngoRegistrationNumber     String?
+  ngoContactPhone           String?
+  ngoAddress                String?
+  ngoDescription            String?
+  ngoSsmDocumentUrl         String?
+  ngoSsmDocumentPublicId    String?
+  ngoSupportingDocUrls      String[]
+  ngoSupportingDocPublicIds String[]
+  
+  // Vendor Profile Fields
+  vendorBusinessName        String?
+  vendorRegistrationNumber  String?
+  vendorPlaceAddress        String?
+  vendorContactPhone        String?
+  vendorDescription         String?
+  vendorSsmDocumentUrl      String?
+  vendorSsmDocumentPublicId String?
+  
+  // Rider Profile Fields
+  riderLicenseNumber        String?
+  riderPhoneNumber          String?
+  riderVehicleType          String?
+  riderVehicleName          String?
+  riderVehiclePlateNumber   String?
+  riderVehicleColor         String?
+  riderAddress              String?
+  riderNotes                String?
+  riderLicenseDocumentUrl   String?
   riderLicenseDocumentPublicId String?
-  riderVehicleGrantUrl         String?
-  riderVehicleGrantPublicId    String?
-  approvalNotes                String?
-  walletBalance                Int                 @default(0)
-  approvedAt                   DateTime?
-  createdAt                    DateTime            @default(now())
-  updatedAt                    DateTime            @updatedAt
-  listings                     Listing[]           @relation("VendorListings")
-  claimedListings              Listing[]           @relation("ClaimedListings")
-  orders                       Order[]             @relation("CustomerOrders")
-  riderOrders                  Order[]             @relation("AssignedRiderOrders")
-  walletTransactions           WalletTransaction[]
-  notifications                Notification[]
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
+  riderVehicleGrantUrl      String?
+  riderVehicleGrantPublicId String?
+  
+  // System Fields
+  approvalNotes             String?
+  walletBalance             Int                 @default(0)
+  approvedAt                DateTime?
+  createdAt                 DateTime            @default(now())
+  updatedAt                 DateTime            @updatedAt
+
+  // Relationships
+  listings                  Listing[]           @relation("VendorListings")
+  claimedListings           Listing[]           @relation("ClaimedListings")
+  orders                    Order[]             @relation("CustomerOrders")
+  riderOrders               Order[]             @relation("AssignedRiderOrders")
+  walletTransactions        WalletTransaction[]
+  notifications             Notification[]
 
   @@map("users")
 }
 
 model Listing {
-<<<<<<< HEAD
-  id          String        @id @default(cuid())
-  title       String
-  description String
-  type        ListingType
-  quantity    Int
-  unitPrice   Int?
-  expiryAt    DateTime
-  location    String
-  imageUrl    String?
-  status      ListingStatus @default(AVAILABLE)
-  vendorId    String
-  claimedById String?
-  claimedAt   DateTime?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  vendor      User          @relation("VendorListings", fields: [vendorId], references: [id])
-  claimedBy   User?         @relation("ClaimedListings", fields: [claimedById], references: [id])
-  orderItems  OrderItem[]
-=======
   id              String        @id @default(cuid())
   title           String
   description     String
@@ -203,10 +152,11 @@ model Listing {
   claimedAt       DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+
+  // Relationships
   vendor          User          @relation("VendorListings", fields: [vendorId], references: [id])
   claimedBy       User?         @relation("ClaimedListings", fields: [claimedById], references: [id])
   orderItems      OrderItem[]
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
 
   @@index([type])
   @@index([status])
@@ -218,34 +168,6 @@ model Listing {
 }
 
 model Order {
-<<<<<<< HEAD
-  id                  String         @id @default(cuid())
-  customerId          String
-  riderId             String?
-  deliveryOption      DeliveryOption
-  paymentMethod       PaymentMethod
-  status              OrderStatus
-  subtotalAmount      Int
-  deliveryFeeAmount   Int
-  totalAmount         Int
-  deliveryAddress     String?
-  pickupInstructions  String?
-  riderName           String?
-  riderPhoneNumber    String?
-  riderVehicle        String?
-  riderPlateNumber    String?
-  trackingLatitude    Float?
-  trackingLongitude   Float?
-  trackingMessage     String?
-  paidAt              DateTime
-  deliveredAt         DateTime?
-  completedAt         DateTime?
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
-  customer            User           @relation("CustomerOrders", fields: [customerId], references: [id])
-  rider               User?          @relation("AssignedRiderOrders", fields: [riderId], references: [id])
-  items               OrderItem[]
-=======
   id                 String              @id @default(cuid())
   customerId         String
   riderId            String?
@@ -271,11 +193,12 @@ model Order {
   completedAt        DateTime?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
+
+  // Relationships
   customer           User                @relation("CustomerOrders", fields: [customerId], references: [id])
   rider              User?               @relation("AssignedRiderOrders", fields: [riderId], references: [id])
   items              OrderItem[]
   walletTransactions WalletTransaction[]
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
 
   @@index([customerId])
   @@index([riderId])
@@ -284,20 +207,6 @@ model Order {
 }
 
 model OrderItem {
-<<<<<<< HEAD
-  id             String   @id @default(cuid())
-  orderId        String
-  listingId      String
-  titleSnapshot  String
-  listingType    ListingType
-  quantity       Int
-  unitPrice      Int
-  lineTotal      Int
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  order          Order    @relation(fields: [orderId], references: [id])
-  listing        Listing  @relation(fields: [listingId], references: [id])
-=======
   id            String      @id @default(cuid())
   orderId       String
   listingId     String
@@ -308,16 +217,15 @@ model OrderItem {
   lineTotal     Int
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+
+  // Relationships
   order         Order       @relation(fields: [orderId], references: [id])
   listing       Listing     @relation(fields: [listingId], references: [id])
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
 
   @@index([orderId])
   @@index([listingId])
   @@map("order_items")
 }
-<<<<<<< HEAD
-=======
 
 model WalletTransaction {
   id          String                @id @default(cuid())
@@ -328,6 +236,8 @@ model WalletTransaction {
   description String
   createdAt   DateTime              @default(now())
   updatedAt   DateTime              @updatedAt
+
+  // Relationships
   user        User                  @relation(fields: [userId], references: [id])
   order       Order?                @relation(fields: [orderId], references: [id])
 
@@ -347,6 +257,8 @@ model Notification {
   isRead    Boolean          @default(false)
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
+
+  // Relationships
   user      User             @relation(fields: [userId], references: [id])
 
   @@index([userId])
@@ -354,4 +266,3 @@ model Notification {
   @@index([createdAt])
   @@map("notifications")
 }
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f

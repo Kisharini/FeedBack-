@@ -22,8 +22,6 @@ const fileFilter = (_req, file, cb) => {
   cb(null, true);
 };
 
-<<<<<<< HEAD
-=======
 const imageFileFilter = (_req, file, cb) => {
   const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp"];
 
@@ -39,12 +37,11 @@ const imageFileFilter = (_req, file, cb) => {
   cb(null, true);
 };
 
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
 const uploadNgoDocuments = multer({
   storage: multer.memoryStorage(),
   fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024
+    fileSize: 5 * 1024 * 1024 // 5MB limit
   }
 }).fields([
   { name: "ssmDocument", maxCount: 1 },
@@ -54,20 +51,15 @@ const uploadNgoDocuments = multer({
   { name: "riderVehicleGrantDocument", maxCount: 1 }
 ]);
 
-<<<<<<< HEAD
-module.exports = {
-  uploadNgoDocuments
-=======
 const uploadListingImage = multer({
   storage: multer.memoryStorage(),
   fileFilter: imageFileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024
+    fileSize: 5 * 1024 * 1024 // 5MB limit
   }
 }).single("listingImage");
 
 module.exports = {
   uploadNgoDocuments,
   uploadListingImage
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
 };
