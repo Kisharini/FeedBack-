@@ -16,12 +16,12 @@ const listingFiltersSchema = z.object({
 });
 
 const listingParamsSchema = z.object({
-  body: z.object({}).optional(),
+  body: z.any().optional(),
   params: z.object({
-    listingId: z.string().trim().min(1, "Listing id is required"),
+    listingId: z.string(), 
   }),
-  query: z.object({}).optional(),
-});
+  query: z.any().optional(),
+}).passthrough();
 
 const checkoutSchema = z.object({
   body: z.object({

@@ -14,6 +14,7 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 border-b border-[#e8eddc] bg-[linear-gradient(180deg,rgba(255,252,238,0.98)_0%,rgba(248,249,244,0.96)_100%)] backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+        {/* Brand Identity / Logo Action */}
         <button
           type="button"
           onClick={() => navigateTo("/")}
@@ -32,10 +33,10 @@ export default function Navbar() {
           </span>
         </button>
 
+        {/* Dynamic Contextual Action Control Links */}
         <div className="flex flex-wrap items-center justify-end gap-3">
           {currentUser ? (
             <>
-
               <NotificationBell />
 
               {/* Individual and NGO Public View Controls */}
@@ -58,8 +59,8 @@ export default function Navbar() {
                 </>
               )}
 
-              {/* Vendor & Merchant Inventory Management Actions */}
-              {["VENDOR", "MERCHANT"].includes(currentUser.role) && (
+              {/* Vendor Management Actions ( MERCHANT verification removed ) */}
+              {currentUser.role === "VENDOR" && (
                 <>
                   <button
                     type="button"
@@ -111,6 +112,8 @@ export default function Navbar() {
                   </button>
                 </>
               )}
+
+              {/* General Account Access Endpoint */}
               <button
                 type="button"
                 onClick={() => navigateTo("/me")}
@@ -118,6 +121,8 @@ export default function Navbar() {
               >
                 My Account
               </button>
+
+              {/* Administrative Back-Office Approvals Portal */}
               {currentUser.role === "ADMIN" && (
                 <button
                   type="button"
@@ -138,6 +143,7 @@ export default function Navbar() {
             </>
           ) : (
             <>
+              {/* Unauthenticated View Access fallbacks */}
               <button
                 type="button"
                 onClick={() => navigateTo("/login")}
