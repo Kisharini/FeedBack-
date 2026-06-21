@@ -1,6 +1,14 @@
 const dotenv = require("dotenv");
+<<<<<<< HEAD
 
 dotenv.config();
+=======
+const path = require("path");
+
+dotenv.config({
+  path: path.resolve(__dirname, "../../.env")
+});
+>>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
 
 const requiredEnvVars = ["DATABASE_URL", "JWT_SECRET"];
 
