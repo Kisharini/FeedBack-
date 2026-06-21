@@ -195,11 +195,8 @@ export default function PendingApprovalsPage() {
       <Navbar />
       <main className="max-w-6xl mx-auto px-6 py-12">
         <div className="bg-white rounded-[2rem] shadow-lg p-8 border border-surface-container-high">
-<<<<<<< HEAD
           <h1 className="text-3xl font-bold mb-4">Pending Approvals</h1>
-=======
           <h1 className="text-3xl font-bold mb-8">Pending Approvals</h1>
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
 
           {state.loading && <p>Loading pending registrations...</p>}
           {state.error && (

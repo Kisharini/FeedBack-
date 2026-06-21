@@ -4,7 +4,6 @@ import LoginPage from "./pages/LoginPage";
 import CurrentUserPage from "./pages/CurrentUserPage";
 import PendingApprovalsPage from "./pages/PendingApprovalsPage";
 import Register from "./pages/Register";
-<<<<<<< HEAD
 
 const routes = {
   "/": LandingPage,
@@ -14,7 +13,6 @@ const routes = {
   "/admin/approvals": PendingApprovalsPage,
 };
 
-=======
 import MarketplacePage from "./pages/MarketplacePage";
 import ListingDetailsPage from "./pages/ListingDetailsPage";
 import CheckoutPage from "./pages/CheckoutPage";
@@ -67,7 +65,6 @@ const dynamicRoutes = [
   },
 ];
 
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
 export default function App() {
   const getPathname = () =>
     window.location.pathname === "/"
@@ -88,11 +85,9 @@ export default function App() {
     };
   }, []);
 
-<<<<<<< HEAD
   const CurrentPage = routes[pathname] ?? LandingPage;
 
   return <CurrentPage />;
-=======
   if (staticRoutes[pathname]) {
     const CurrentPage = staticRoutes[pathname];
     return <CurrentPage />;
@@ -105,5 +100,4 @@ export default function App() {
   }
 
   return <LandingPage />;
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
 }

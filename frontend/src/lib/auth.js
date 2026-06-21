@@ -11,12 +11,9 @@ export const getStoredAuth = () => {
 
 export const saveAuth = (authData) => {
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authData));
-<<<<<<< HEAD
-=======
   if (authData?.token){
     localStorage.setItem("token", authData.token)
   }
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
   window.dispatchEvent(new Event("authchange"));
 };
 

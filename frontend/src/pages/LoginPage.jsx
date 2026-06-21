@@ -1,8 +1,5 @@
-<<<<<<< HEAD
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-=======
 import { useEffect, useRef, useState } from "react";
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
 import logo from "../assets/logo.png";
 import { jsonRequest } from "../lib/api";
 import { saveAuth } from "../lib/auth";
@@ -60,13 +57,10 @@ export default function LoginPage() {
   };
 
   const finishAuth = (authData, successMessage) => {
-<<<<<<< HEAD
     saveAuth(authData);
-=======
     console.log("Auth Data Received from Server:", authData);
     saveAuth(authData);
     console.log("Token in LocalStorage right after save:", localStorage.getItem("token"));
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
     setMessage(successMessage);
 
     if (authData.user.role === "ADMIN") {
@@ -74,8 +68,6 @@ export default function LoginPage() {
       return;
     }
 
-<<<<<<< HEAD
-=======
     if (["INDIVIDUAL", "NGO"].includes(authData.user.role)) {
       navigateTo("/marketplace");
       return;
@@ -91,7 +83,6 @@ export default function LoginPage() {
       return;
     }
 
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
     navigateTo("/me");
   };
 
@@ -115,12 +106,9 @@ export default function LoginPage() {
     }
   };
 
-<<<<<<< HEAD
   const handleGoogleCredential = useEffectEvent(async (credential) => {
-=======
   // Replaced experimental useEffectEvent with a stable standard handler function
   const handleGoogleCredential = async (credential) => {
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
     if (!credential) {
       setError("Google sign-in was cancelled. Please try again.");
       return;
@@ -142,15 +130,12 @@ export default function LoginPage() {
     } finally {
       setGoogleSubmitting(false);
     }
-<<<<<<< HEAD
-=======
   };
 
   // Capture the credential handler dynamic reference safely for the initialization lifecycle
   const handleGoogleCredentialRef = useRef(handleGoogleCredential);
   useEffect(() => {
     handleGoogleCredentialRef.current = handleGoogleCredential;
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
   });
 
   useEffect(() => {
@@ -166,15 +151,13 @@ export default function LoginPage() {
       }
 
       googleButtonRef.current.innerHTML = "";
-<<<<<<< HEAD
       window.google.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
         callback: ({ credential }) => {
           handleGoogleCredential(credential);
         },
       });
-=======
-      
+
       if (!window.__google_initialized){
       window.google.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
@@ -184,7 +167,6 @@ export default function LoginPage() {
       });
       window.__google_initialized = true
     }
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
       window.google.accounts.id.renderButton(googleButtonRef.current, {
         theme: "outline",
         size: "large",
@@ -235,11 +217,8 @@ export default function LoginPage() {
       script?.removeEventListener("load", handleLoad);
       script?.removeEventListener("error", handleError);
     };
-<<<<<<< HEAD
   }, [handleGoogleCredential]);
-=======
   }, []);
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
 
   return (
     <div className="min-h-screen bg-background text-on-background font-body-md">
@@ -384,7 +363,6 @@ export default function LoginPage() {
 
         <div className={`w-full lg:h-full lg:min-h-0 lg:w-7/12 lg:overflow-y-auto lg:pr-2 ${panelClassName}`}>
           <div className="p-8 md:p-12">
-<<<<<<< HEAD
           <div className="mb-10 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
               <h2 className="font-h1 text-h1 text-on-surface">Welcome Back</h2>
@@ -540,7 +518,6 @@ export default function LoginPage() {
               </button>
             </p>
           </div>
-=======
             <div className="mb-10 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>
                 <h2 className="font-h1 text-h1 text-on-surface">Welcome Back</h2>
@@ -697,7 +674,6 @@ export default function LoginPage() {
                 </button>
               </p>
             </div>
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
           </div>
         </div>
       </main>

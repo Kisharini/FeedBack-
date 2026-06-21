@@ -1,12 +1,6 @@
 import { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
-<<<<<<< HEAD
 import { clearAuth, getToken } from "../lib/auth";
-import { apiRequest } from "../lib/api";
-import { navigateTo } from "../lib/navigation";
-
-=======
-import { getToken } from "../lib/auth";
 import { apiRequest } from "../lib/api";
 import { navigateTo } from "../lib/navigation";
 
@@ -16,7 +10,6 @@ const formatRole = (role) => {
   return role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
 };
 
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
 export default function CurrentUserPage() {
   const [state, setState] = useState({
     loading: true,
@@ -26,77 +19,11 @@ export default function CurrentUserPage() {
 
   useEffect(() => {
     const token = getToken();
-<<<<<<< HEAD
-
-=======
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
     if (!token) {
       navigateTo("/login");
       return;
     }
 
-<<<<<<< HEAD
-    apiRequest("/auth/me", { token })
-      .then((response) => {
-        setState({
-          loading: false,
-          error: "",
-          user: response.data.user,
-        });
-      })
-      .catch((error) => {
-        clearAuth();
-        setState({
-          loading: false,
-          error: error.message,
-          user: null,
-        });
-      });
-  }, []);
-
-  return (
-    <div className="min-h-screen bg-background text-on-background font-body-md">
-      <Navbar />
-      <main className="max-w-5xl mx-auto px-6 py-12">
-        <div className="bg-white rounded-[2rem] shadow-lg p-8 border border-surface-container-high">
-          <h1 className="font-h1 text-h1 text-on-surface mb-4">My Account</h1>
-
-          {state.loading && (
-            <p className="font-body-md text-body-md text-on-surface-variant">
-              Loading your account details...
-            </p>
-          )}
-          {state.error && (
-            <div className="rounded-xl bg-red-50 text-red-700 px-4 py-3">
-              {state.error}
-            </div>
-          )}
-
-          {state.user && (
-            <div className="grid gap-4 md:grid-cols-2">
-              <InfoCard label="Name" value={state.user.name} />
-              <InfoCard label="Email" value={state.user.email} />
-              <InfoCard label="Role" value={state.user.role} />
-              <InfoCard
-                label="Approval Status"
-                value={state.user.approvalStatus || "APPROVED"}
-              />
-              <InfoCard
-                label="Created At"
-                value={new Date(state.user.createdAt).toLocaleString()}
-              />
-              <InfoCard
-                label="Approved At"
-                value={
-                  state.user.approvedAt
-                    ? new Date(state.user.approvedAt).toLocaleString()
-                    : "Not approved yet"
-                }
-              />
-            </div>
-          )}
-        </div>
-=======
     let isMounted = true;
     apiRequest("/auth/me", { token })
       .then((response) => {
@@ -111,6 +38,7 @@ export default function CurrentUserPage() {
       })
       .catch((error) => {
         if (isMounted) {
+          clearAuth();
           setState((prevState) => ({
             ...prevState,
             loading: false,
@@ -448,13 +376,11 @@ export default function CurrentUserPage() {
 
           </div>
         )}
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
       </main>
     </div>
   );
 }
 
-<<<<<<< HEAD
 function InfoCard({ label, value }) {
   return (
     <div className="rounded-2xl bg-surface p-5 border border-surface-container-high">
@@ -464,7 +390,10 @@ function InfoCard({ label, value }) {
       <p className="font-body-md text-body-lg text-on-surface break-words">
         {value || "-"}
       </p>
-=======
+    </div>
+  );
+}
+
 function ImpactStatCard({ icon, label, value, desc }) {
   return (
     <div className="rounded-[1.6rem] border border-[#e4ebd9] bg-white p-5 shadow-sm hover:shadow-md transition duration-300">
@@ -474,7 +403,6 @@ function ImpactStatCard({ icon, label, value, desc }) {
       </div>
       <p className="mt-3 text-2xl font-extrabold text-[#1d301e] tracking-tight">{value}</p>
       <p className="mt-1 text-xs leading-relaxed text-[#687664]">{desc}</p>
->>>>>>> 822f7ce03a154547be32d378797ba9d7209f164f
     </div>
   );
 }
