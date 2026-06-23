@@ -1,0 +1,4 @@
+-- Historical placeholder migration.
+-- This migration name exists in the production Prisma migrations table as a rolled-back record.
+-- The original migration file is not part of the current codebase, so this stub keeps local
+-- migration history aligned with the database without changing schema state.

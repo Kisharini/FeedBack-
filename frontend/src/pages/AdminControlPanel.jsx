@@ -1,36 +1,97 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Navbar from "../components/Navbar";
 import { apiRequest } from "../lib/api";
 import { navigateTo } from "../lib/navigation";
-import { getCurrentUserFromStorage } from "../lib/auth";
+import { clearAuth, getCurrentUserFromStorage, getToken } from "../lib/auth";
+
+const actionClassNames = {
+  danger:
+    "bg-red-600 text-white hover:bg-red-700 disabled:bg-red-400 disabled:cursor-not-allowed",
+  secondary:
+    "border border-[#d6e0ca] bg-white text-amber-800 hover:bg-amber-50 disabled:opacity-60 disabled:cursor-not-allowed",
+  ghost:
+    "border border-[#edf1e6] bg-white text-[#5f6d5b] hover:bg-[#fafdf6] disabled:opacity-60 disabled:cursor-not-allowed",
+  primary:
+    "bg-[#213722] text-white hover:bg-[#162617] disabled:bg-[#415041] disabled:cursor-not-allowed"
+};
+
+const initialSummary = {
+  pendingApprovals: 0,
+  activeListings: 0,
+  deliveryWatch: 0,
+  unreadNotifications: 0,
+  flaggedAlerts: 0
+};
+
+const formatTimeAgo = (value) => {
+  if (!value) {
+    return "just now";
+  }
+
+  const diffMs = Date.now() - new Date(value).getTime();
+  const diffMinutes = Math.max(1, Math.floor(diffMs / 60000));
+
+  if (diffMinutes < 60) {
+    return `${diffMinutes} minute${diffMinutes === 1 ? "" : "s"} ago`;
+  }
+
+  const diffHours = Math.floor(diffMinutes / 60);
+
+  if (diffHours < 24) {
+    return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
+  }
+
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+};
 
 export default function AdminControlPanel() {
   const [currentUser] = useState(() => getCurrentUserFromStorage());
-  const [actionLoadingId, setActionLoadingId] = useState("");
-  const [error, setError] = useState("");
-  
-  const [alerts, setAlerts] = useState([
-    {
-      id: "alert-mock-1",
-      severity: "HIGH",
-      targetType: "LISTING",
-      targetName: "Premium Medical Supplies Bulk",
-      issueTitle: "Prohibited Item Category",
-      description: "This listing contains restricted prescription items violating section 4.2 of our community distribution guidelines.",
-      reporterName: "System Flag (Automated Keyword)",
-      timeAgo: "14 minutes ago"
-    },
-    {
-      id: "alert-mock-2",
-      severity: "MEDIUM",
-      targetType: "INDIVIDUAL",
-      targetName: "Marcus Vance (Driver ID: #8841)",
-      issueTitle: "Spam / Recurrent Delivery Cancellations",
-      description: "User has accepted and subsequently dropped 4 dispatch assignments within a 2-hour window.",
-      reporterName: "Logistics Engine Monitor",
-      timeAgo: "2 hours ago"
+  const [state, setState] = useState({
+    loading: true,
+    actionLoadingId: "",
+    error: "",
+    summary: initialSummary,
+    alerts: [],
+    dismissedAlerts: {}
+  });
+
+  const visibleAlerts = useMemo(
+    () => state.alerts.filter((alert) => !state.dismissedAlerts[alert.id]),
+    [state.alerts, state.dismissedAlerts]
+  );
+
+  const loadDashboard = async () => {
+    const token = getToken();
+
+    if (!token) {
+      navigateTo("/login");
+      return;
     }
-  ]);
+
+    try {
+      const response = await apiRequest("/admin/dashboard", { token });
+      setState((current) => ({
+        ...current,
+        loading: false,
+        error: "",
+        summary: response.data.summary,
+        alerts: response.data.alerts
+      }));
+    } catch (requestError) {
+      if (/token|unauthorized|forbidden/i.test(requestError.message)) {
+        clearAuth();
+        navigateTo("/login");
+        return;
+      }
+
+      setState((current) => ({
+        ...current,
+        loading: false,
+        error: requestError.message || "Failed to load admin control panel."
+      }));
+    }
+  };
 
   useEffect(() => {
     if (!currentUser) {
@@ -42,26 +103,56 @@ export default function AdminControlPanel() {
       navigateTo("/");
       return;
     }
+
+    loadDashboard();
   }, [currentUser]);
 
-  const handleAction = async (alertId, actionType) => {
-    setActionLoadingId(`${alertId}-${actionType}`);
-    setError("");
+  const handleAction = async (alert, action) => {
+    if (action.type === "OPEN_APPROVALS") {
+      navigateTo("/admin/approvals");
+      return;
+    }
+
+    const token = getToken();
+    const actionKey = `${alert.id}-${action.type}`;
+
+    setState((current) => ({
+      ...current,
+      actionLoadingId: actionKey,
+      error: ""
+    }));
 
     try {
-      await apiRequest(`/admin/alerts/${alertId}/action`, {
+      await apiRequest(`/admin/alerts/${encodeURIComponent(alert.id)}/action`, {
         method: "POST",
-        body: JSON.stringify({ action: actionType }),
+        token,
+        body: JSON.stringify({ action: action.type }),
         headers: {
           "Content-Type": "application/json"
         }
       });
-      
-      setAlerts((prevAlerts) => prevAlerts.filter((alert) => alert.id !== alertId));
+
+      if (action.type === "DISMISS_ALERT") {
+        setState((current) => ({
+          ...current,
+          dismissedAlerts: {
+            ...current.dismissedAlerts,
+            [alert.id]: true
+          }
+        }));
+      } else {
+        await loadDashboard();
+      }
     } catch (requestError) {
-      setError(requestError.message || "Failed to process moderation action.");
+      setState((current) => ({
+        ...current,
+        error: requestError.message || "Failed to process admin action."
+      }));
     } finally {
-      setActionLoadingId("");
+      setState((current) => ({
+        ...current,
+        actionLoadingId: ""
+      }));
     }
   };
 
@@ -70,103 +161,152 @@ export default function AdminControlPanel() {
       <Navbar />
       <main className="mx-auto max-w-7xl px-6 py-10">
         <section className="overflow-hidden rounded-[2.5rem] border border-[#e6ebda] bg-[linear-gradient(135deg,#fff9ef_0%,#f5fbe9_48%,#eef7ff_100%)] p-8 shadow-level-2">
-          <div>
+          <div className="max-w-3xl">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#6c7d69]">
               Administration Panel
             </p>
             <h1 className="mt-2 font-display text-[clamp(2rem,3vw,2.8rem)] leading-tight text-[#1d3720]">
-              System Flags & Audit Queue
+              Platform Management
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#53604a]">
-              Review automated flags, community infraction notices, and target exceptions. Enforce platform compliance across drivers, customers, and active vendor inventory.
+            <p className="mt-3 text-sm leading-relaxed text-[#53604a]">
+              Review automated flags, pending registrations, listing compliance issues, and delayed delivery operations from one admin workspace.
             </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => navigateTo("/admin/approvals")}
+                className="rounded-xl bg-[#213722] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#162617]"
+              >
+                Open Approval Queue
+              </button>
+              <button
+                type="button"
+                onClick={() => navigateTo("/admin/users")}
+                className="rounded-xl border border-[#d6e0ca] bg-white px-5 py-3 text-sm font-semibold text-[#264027] transition hover:bg-[#f6faef]"
+              >
+                View Registered Accounts
+              </button>
+            </div>
           </div>
         </section>
 
-        {error && (
-          <div className="mt-6 rounded-2xl border border-red-100 bg-red-50 px-5 py-4 text-sm text-red-700">
-            {error}
+        <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <SummaryCard
+            label="Pending Approvals"
+            value={state.summary.pendingApprovals}
+            description="Accounts waiting for review"
+          />
+          <SummaryCard
+            label="Active Listings"
+            value={state.summary.activeListings}
+            description="Live inventory across the marketplace"
+          />
+          <SummaryCard
+            label="Delivery Watch"
+            value={state.summary.deliveryWatch}
+            description="Delivery orders still in progress"
+          />
+          <SummaryCard
+            label="Unread Notifications"
+            value={state.summary.unreadNotifications}
+            description="User notifications still unread"
+          />
+          <SummaryCard
+            label="Open Alerts"
+            value={visibleAlerts.length}
+            description="Items shown in this admin queue"
+          />
+        </section>
+
+        {state.loading && (
+          <div className="mt-8 rounded-[2rem] border border-[#e9efde] bg-white px-6 py-14 text-center">
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-[#dbe7ce] border-t-[#213722]" />
+            <p className="mt-4 text-sm text-[#5b6757]">Loading live admin operations...</p>
           </div>
         )}
 
-        {alerts.length === 0 ? (
+        {state.error && (
+          <div className="mt-6 rounded-2xl border border-red-100 bg-red-50 px-5 py-4 text-sm text-red-700">
+            {state.error}
+          </div>
+        )}
+
+        {!state.loading && visibleAlerts.length === 0 ? (
           <div className="mt-8 rounded-[2rem] border border-dashed border-[#d5dec8] bg-white px-6 py-14 text-center">
             <p className="text-h2 text-[#223623]">All clear!</p>
             <p className="mt-3 text-body-md text-[#63705f]">
-              No pending moderation flags or system warnings require your attention.
+              No admin alerts currently require attention.
             </p>
           </div>
-        ) : (
+        ) : null}
+
+        {!state.loading && visibleAlerts.length > 0 ? (
           <div className="mt-8 space-y-6">
-            {alerts.map((alert) => (
-              <div 
+            {visibleAlerts.map((alert) => (
+              <div
                 key={alert.id}
-                className="overflow-hidden rounded-[2rem] border border-[#ebefdf] bg-white p-6 shadow-[0_12px_24px_rgba(92,103,70,0.05)] flex flex-col md:flex-row md:items-start justify-between gap-6"
+                className="flex flex-col justify-between gap-6 overflow-hidden rounded-[2rem] border border-[#ebefdf] bg-white p-6 shadow-[0_12px_24px_rgba(92,103,70,0.05)] md:flex-row md:items-start"
               >
-                <div className="space-y-3 flex-1">
+                <div className="flex-1 space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className={`px-2.5 py-1 text-xs font-bold rounded-full border ${
-                      alert.severity === "HIGH" 
-                        ? "bg-red-50 text-red-700 border-red-200" 
-                        : "bg-amber-50 text-amber-700 border-amber-200"
-                    }`}>
+                    <span
+                      className={`rounded-full border px-2.5 py-1 text-xs font-bold ${
+                        alert.severity === "HIGH"
+                          ? "border-red-200 bg-red-50 text-red-700"
+                          : "border-amber-200 bg-amber-50 text-amber-700"
+                      }`}
+                    >
                       {alert.severity} Priority
                     </span>
                     <span className="text-xs font-medium text-[#70816c]">
-                      Reported by {alert.reporterName} • {alert.timeAgo}
+                      Reported by {alert.reporterName} - {formatTimeAgo(alert.createdAt)}
                     </span>
                   </div>
-                  
+
                   <div>
                     <h3 className="text-lg font-bold text-[#1d3720]">{alert.issueTitle}</h3>
-                    <p className="text-sm font-semibold text-primary mt-1">Target: {alert.targetName} ({alert.targetType})</p>
+                    <p className="mt-1 text-sm font-semibold text-primary">
+                      Target: {alert.targetName} ({alert.targetType})
+                    </p>
                     <p className="mt-2 text-sm leading-relaxed text-[#5b6757]">{alert.description}</p>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap md:flex-col lg:flex-row gap-2 self-stretch md:self-start justify-end">
-                  {alert.targetType === "LISTING" ? (
-                    <button
-                      type="button"
-                      disabled={actionLoadingId === `${alert.id}-TAKE_DOWN_LISTING`}
-                      onClick={() => handleAction(alert.id, "TAKE_DOWN_LISTING")}
-                      className="flex-1 md:flex-initial px-4 py-2.5 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white text-xs font-bold rounded-xl transition shadow-sm whitespace-nowrap disabled:cursor-not-allowed"
-                    >
-                      {actionLoadingId === `${alert.id}-TAKE_DOWN_LISTING` ? "Processing..." : "Take Down Listing"}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={actionLoadingId === `${alert.id}-BAN_USER`}
-                      onClick={() => handleAction(alert.id, "BAN_USER")}
-                      className="flex-1 md:flex-initial px-4 py-2.5 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white text-xs font-bold rounded-xl transition shadow-sm whitespace-nowrap disabled:cursor-not-allowed"
-                    >
-                      {actionLoadingId === `${alert.id}-BAN_USER` ? "Processing..." : "Restrict Account"}
-                    </button>
-                  )}
-                  
-                  <button
-                    type="button"
-                    disabled={actionLoadingId === `${alert.id}-WARN_USER`}
-                    onClick={() => handleAction(alert.id, "WARN_USER")}
-                    className="flex-1 md:flex-initial px-4 py-2.5 bg-white border border-[#d6e0ca] hover:bg-amber-50 text-amber-800 text-xs font-bold rounded-xl transition whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    {actionLoadingId === `${alert.id}-WARN_USER` ? "Sending..." : "Issue Warning"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={actionLoadingId === `${alert.id}-DISMISS_ALERT`}
-                    onClick={() => handleAction(alert.id, "DISMISS_ALERT")}
-                    className="flex-1 md:flex-initial px-4 py-2.5 bg-white border border-[#edf1e6] hover:bg-[#fafdf6] text-[#5f6d5b] text-xs font-medium rounded-xl transition whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    {actionLoadingId === `${alert.id}-DISMISS_ALERT` ? "Dismissing..." : "Dismiss Flag"}
-                  </button>
+                <div className="flex flex-wrap justify-end gap-2 self-stretch md:self-start">
+                  {alert.actions.map((action) => {
+                    const actionKey = `${alert.id}-${action.type}`;
+                    const isLoading = state.actionLoadingId === actionKey;
+
+                    return (
+                      <button
+                        key={action.type}
+                        type="button"
+                        disabled={Boolean(state.actionLoadingId)}
+                        onClick={() => handleAction(alert, action)}
+                        className={`flex-1 whitespace-nowrap rounded-xl px-4 py-2.5 text-xs font-bold transition md:flex-initial ${
+                          actionClassNames[action.variant] || actionClassNames.ghost
+                        }`}
+                      >
+                        {isLoading ? "Processing..." : action.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             ))}
           </div>
-        )}
+        ) : null}
       </main>
+    </div>
+  );
+}
+
+function SummaryCard({ label, value, description }) {
+  return (
+    <div className="rounded-[1.75rem] border border-[#e8eddc] bg-white p-5 shadow-[0_10px_24px_rgba(92,103,70,0.05)]">
+      <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#70816c]">{label}</p>
+      <p className="mt-3 text-3xl font-extrabold tracking-tight text-[#1d3720]">{value}</p>
+      <p className="mt-2 text-sm leading-relaxed text-[#63705f]">{description}</p>
     </div>
   );
 }

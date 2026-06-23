@@ -62,7 +62,7 @@ export default function LoginPage() {
     setMessage(successMessage);
 
     if (authData.user.role === "ADMIN") {
-      navigateTo("/admin/approvals");
+      navigateTo("/admin/dashboard");
       return;
     }
 

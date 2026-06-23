@@ -4,6 +4,8 @@ const { verifyToken } = require("../utils/jwt");
 const ApiError = require("../utils/apiError");
 const asyncHandler = require("../utils/asyncHandler");
 
+const BANNED_ACCOUNT_MESSAGE = "This account has been banned. Please contact an administrator.";
+
 const authMiddleware = asyncHandler(async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
@@ -48,6 +50,7 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
       email: true,
       role: true,
       approvalStatus: true,
+      accountStatus: true,
       approvalNotes: true,
       approvedAt: true,
       createdAt: true,
@@ -91,6 +94,10 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
     return res.status(StatusCodes.UNAUTHORIZED).json({
       error: "User associated with token no longer exists",
     });
+  }
+
+  if (user.accountStatus === "BANNED") {
+    throw new ApiError(StatusCodes.FORBIDDEN, BANNED_ACCOUNT_MESSAGE);
   }
 
   req.user = user;

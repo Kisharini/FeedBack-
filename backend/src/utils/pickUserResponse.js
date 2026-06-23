@@ -4,6 +4,7 @@ const pickUserResponse = (user) => ({
   email: user.email,
   role: user.role,
   approvalStatus: user.approvalStatus,
+  accountStatus: user.accountStatus,
   ngoOrganizationName: user.ngoOrganizationName,
   ngoRegistrationNumber: user.ngoRegistrationNumber,
   ngoContactPhone: user.ngoContactPhone,

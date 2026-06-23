@@ -3,8 +3,19 @@ import NotificationBell from "./NotificationBell";
 import { clearAuth, getCurrentUserFromStorage } from "../lib/auth";
 import { navigateTo } from "../lib/navigation";
 
+const getPathname = () =>
+  window.location.pathname === "/"
+    ? "/"
+    : window.location.pathname.replace(/\/+$/, "");
+
+const getNavButtonClassName = (isActive) =>
+  isActive
+    ? "rounded-full bg-[#213722] px-5 py-2 font-label-md text-label-md text-white shadow-[0_10px_24px_rgba(33,55,34,0.18)] transition-all hover:bg-[#162617]"
+    : "rounded-full border border-[#e2e7d8] bg-white/85 px-5 py-2 font-label-md text-label-md text-[#415041] shadow-[0_8px_20px_rgba(104,97,59,0.05)] transition-all hover:border-[#b9d48f] hover:bg-[#f7fbf1]";
+
 export default function Navbar() {
   const currentUser = getCurrentUserFromStorage();
+  const pathname = getPathname();
 
   const handleLogout = () => {
     clearAuth();
@@ -43,14 +54,14 @@ export default function Navbar() {
                   <button
                     type="button"
                     onClick={() => navigateTo("/marketplace")}
-                    className="rounded-full border border-[#e2e7d8] bg-white/85 px-5 py-2 font-label-md text-label-md text-[#415041] shadow-[0_8px_20px_rgba(104,97,59,0.05)] transition-all hover:border-[#b9d48f] hover:bg-[#f7fbf1]"
+                    className={getNavButtonClassName(pathname === "/marketplace")}
                   >
                     Marketplace
                   </button>
                   <button
                     type="button"
                     onClick={() => navigateTo("/marketplace/orders")}
-                    className="rounded-full border border-[#e2e7d8] bg-white/85 px-5 py-2 font-label-md text-label-md text-[#415041] shadow-[0_8px_20px_rgba(104,97,59,0.05)] transition-all hover:border-[#b9d48f] hover:bg-[#f7fbf1]"
+                    className={getNavButtonClassName(pathname === "/marketplace/orders")}
                   >
                     Track Orders
                   </button>
@@ -63,21 +74,21 @@ export default function Navbar() {
                   <button
                     type="button"
                     onClick={() => navigateTo("/vendor/dashboard")} 
-                    className="rounded-full border border-[#e2e7d8] bg-white/85 px-5 py-2 font-label-md text-label-md text-[#415041] shadow-[0_8px_20px_rgba(104,97,59,0.05)] transition-all hover:border-[#b9d48f] hover:bg-[#f7fbf1]"
+                    className={getNavButtonClassName(pathname === "/vendor/dashboard")}
                   >
                     Create Listing
                   </button>
                   <button
                     type="button"
                     onClick={() => navigateTo("/vendor/listings")}
-                    className="rounded-full border border-[#e2e7d8] bg-white/85 px-5 py-2 font-label-md text-label-md text-[#415041] shadow-[0_8px_20px_rgba(104,97,59,0.05)] transition-all hover:border-[#b9d48f] hover:bg-[#f7fbf1]"
+                    className={getNavButtonClassName(pathname === "/vendor/listings")}
                   >
                     My Listings
                   </button>
                   <button
                     type="button"
                     onClick={() => navigateTo("/vendor/orders")}
-                    className="rounded-full border border-[#e2e7d8] bg-white/85 px-5 py-2 font-label-md text-label-md text-[#415041] shadow-[0_8px_20px_rgba(104,97,59,0.05)] transition-all hover:border-[#b9d48f] hover:bg-[#f7fbf1]"
+                    className={getNavButtonClassName(pathname === "/vendor/orders")}
                   >
                     Order History
                   </button>
@@ -90,21 +101,21 @@ export default function Navbar() {
                   <button
                     type="button"
                     onClick={() => navigateTo("/rider/dashboard")}
-                    className="rounded-full border border-[#e2e7d8] bg-white/85 px-5 py-2 font-label-md text-label-md text-[#415041] shadow-[0_8px_20px_rgba(104,97,59,0.05)] transition-all hover:border-[#b9d48f] hover:bg-[#f7fbf1]"
+                    className={getNavButtonClassName(pathname === "/rider/dashboard")}
                   >
                     Delivery Jobs
                   </button>
                   <button
                     type="button"
                     onClick={() => navigateTo("/rider/history")}
-                    className="rounded-full border border-[#e2e7d8] bg-white/85 px-5 py-2 font-label-md text-label-md text-[#415041] shadow-[0_8px_20px_rgba(104,97,59,0.05)] transition-all hover:border-[#b9d48f] hover:bg-[#f7fbf1]"
+                    className={getNavButtonClassName(pathname === "/rider/history")}
                   >
                     Delivery History
                   </button>
                   <button
                     type="button"
                     onClick={() => navigateTo("/rider/wallet")}
-                    className="rounded-full border border-[#e2e7d8] bg-white/85 px-5 py-2 font-label-md text-label-md text-[#415041] shadow-[0_8px_20px_rgba(104,97,59,0.05)] transition-all hover:border-[#b9d48f] hover:bg-[#f7fbf1]"
+                    className={getNavButtonClassName(pathname === "/rider/wallet")}
                   >
                     Wallet
                   </button>
@@ -114,19 +125,35 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => navigateTo("/me")}
-                className="rounded-full border border-[#e2e7d8] bg-white/85 px-5 py-2 font-label-md text-label-md text-[#415041] shadow-[0_8px_20px_rgba(104,97,59,0.05)] transition-all hover:border-[#b9d48f] hover:bg-[#f7fbf1]"
+                className={getNavButtonClassName(pathname === "/me")}
               >
                 My Account
               </button>
 
               {currentUser.role === "ADMIN" && (
-                <button
-                  type="button"
-                  onClick={() => navigateTo("/admin/approvals")}
-                  className="rounded-full border border-[#e2e7d8] bg-white/85 px-5 py-2 font-label-md text-label-md text-[#415041] shadow-[0_8px_20px_rgba(104,97,59,0.05)] transition-all hover:border-[#b9d48f] hover:bg-[#f7fbf1]"
-                >
-                  Approvals
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => navigateTo("/admin/dashboard")}
+                    className={getNavButtonClassName(pathname === "/admin/dashboard")}
+                  >
+                    Admin Panel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigateTo("/admin/approvals")}
+                    className={getNavButtonClassName(pathname === "/admin/approvals")}
+                  >
+                    Approvals
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigateTo("/admin/users")}
+                    className={getNavButtonClassName(pathname === "/admin/users")}
+                  >
+                    Accounts
+                  </button>
+                </>
               )}
 
               <button
@@ -142,7 +169,7 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => navigateTo("/login")}
-                className="rounded-full border border-[#e2e7d8] bg-white/85 px-5 py-2 font-label-md text-label-md text-[#415041] shadow-[0_8px_20px_rgba(104,97,59,0.05)] transition-all hover:border-[#b9d48f] hover:bg-[#f7fbf1]"
+                className={getNavButtonClassName(pathname === "/login")}
               >
                 Login
               </button>

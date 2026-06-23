@@ -1,4 +1,5 @@
 const express = require("express");
+const adminRoutes = require("./adminRoutes");
 const authRoutes = require("./authRoutes");
 const marketplaceRoutes = require("./marketplaceRoutes");
 const notificationRoutes = require("./notificationRoutes");
@@ -17,6 +18,8 @@ router.get("/", (req, res) => {
       "/api/auth/register",
       "/api/auth/login",
       "/api/auth/me",
+      "/api/admin/dashboard",
+      "/api/admin/alerts/:alertId/action",
       "/api/auth/pending-approvals",
       "/api/auth/users/:userId/approval",
       "/api/marketplace/listings",
@@ -37,6 +40,7 @@ router.get("/health", (req, res) => {
 });
 
 router.use("/auth", authRoutes);
+router.use("/admin", adminRoutes);
 router.use("/marketplace", marketplaceRoutes);
 router.use("/notifications", notificationRoutes);
 router.use("/rider", riderRoutes);

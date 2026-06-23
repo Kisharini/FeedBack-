@@ -319,7 +319,7 @@ export default function MarketplacePage() {
                     <InfoPill
                       icon="local_shipping"
                       label="Delivery"
-                      value="Mock delivery available"
+                      value="Delivery available"
                     />
                   </div>
 

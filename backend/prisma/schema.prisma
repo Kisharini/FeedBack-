@@ -20,6 +20,11 @@ enum ApprovalStatus {
   REJECTED
 }
 
+enum AccountStatus {
+  ACTIVE
+  BANNED
+}
+
 enum ListingStatus {
   AVAILABLE
   CLAIMED
@@ -76,6 +81,7 @@ model User {
   password                     String
   role                         Role
   approvalStatus               ApprovalStatus      @default(APPROVED)
+  accountStatus                AccountStatus       @default(ACTIVE)
   ngoOrganizationName          String?
   ngoRegistrationNumber        String?
   ngoContactPhone              String?

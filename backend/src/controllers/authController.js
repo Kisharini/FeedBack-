@@ -13,6 +13,7 @@ const pickUserResponse = require("../utils/pickUserResponse");
 const SALT_ROUNDS = 10;
 const APPROVAL_REQUIRED_ROLES = new Set(["NGO", "VENDOR", "RIDER"]);
 const googleClient = env.googleClientId ? new OAuth2Client(env.googleClientId) : null;
+const BANNED_ACCOUNT_MESSAGE = "This account has been banned. Please contact an administrator.";
 
 const buildAuthResponse = (user) => ({
   user: pickUserResponse(user),
@@ -255,6 +256,7 @@ const register = asyncHandler(async (req, res) => {
       password: hashedPassword,
       role: req.validated.body.role,
       approvalStatus: approvalRequired ? "PENDING" : "APPROVED",
+      accountStatus: "ACTIVE",
       ...roleSpecificData
     }
   });
@@ -315,6 +317,10 @@ const login = asyncHandler(async (req, res) => {
     throw new ApiError(StatusCodes.UNAUTHORIZED, "Invalid email or password");
   }
 
+  if (user.accountStatus === "BANNED") {
+    throw new ApiError(StatusCodes.FORBIDDEN, BANNED_ACCOUNT_MESSAGE);
+  }
+
   if (APPROVAL_REQUIRED_ROLES.has(user.role) && user.approvalStatus !== "APPROVED") {
     throw new ApiError(
       StatusCodes.FORBIDDEN,
@@ -364,9 +370,14 @@ const googleLogin = asyncHandler(async (req, res) => {
         email,
         password: hashedPassword,
         role: "INDIVIDUAL",
-        approvalStatus: "APPROVED"
+        approvalStatus: "APPROVED",
+        accountStatus: "ACTIVE"
       }
     });
+  }
+
+  if (user.accountStatus === "BANNED") {
+    throw new ApiError(StatusCodes.FORBIDDEN, BANNED_ACCOUNT_MESSAGE);
   }
 
   if (APPROVAL_REQUIRED_ROLES.has(user.role) && user.approvalStatus !== "APPROVED") {

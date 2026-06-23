@@ -9,6 +9,7 @@ import ListingDetailsPage from "./pages/ListingDetailsPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import OrderTrackingPage from "./pages/OrderTrackingPage";
 import AdminControlPanel from "./pages/AdminControlPanel";
+import AdminUsersPage from "./pages/AdminUsersPage";
 import ContactUsPage from "./pages/ContactUsPage";
 import PartnerWithUsPage from "./pages/PartnerWithUsPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
@@ -32,6 +33,7 @@ const staticRoutes = {
   "/partner-with-us": PartnerWithUsPage,
   "/me": CurrentUserPage,
   "/admin/approvals": PendingApprovalsPage,
+  "/admin/users": AdminUsersPage,
   "/marketplace": MarketplacePage,
   "/marketplace/checkout": CheckoutPage,
   "/marketplace/orders": OrderTrackingPage,
