@@ -55,6 +55,49 @@ const checkoutSchema = z.object({
         message: "Delivery coordinates must include both latitude and longitude",
       });
     }
+
+    if (body.deliveryOption === "DELIVERY" && !hasDeliveryLatitude && !hasDeliveryLongitude) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["deliveryAddress"],
+        message: "Please select a delivery address suggestion so we can calculate the rider fee",
+      });
+    }
+  }),
+  params: z.object({}).optional(),
+  query: z.object({}).optional(),
+});
+
+const deliveryFeeEstimateSchema = z.object({
+  body: z.object({
+    items: z.array(
+      z.object({
+        listingId: z.string().trim().min(1, "Listing id is required"),
+        quantity: z.coerce.number().int().min(1, "Quantity must be at least 1"),
+      })
+    ).min(1, "At least one listing is required"),
+    deliveryOption: z.enum(deliveryOptions),
+    deliveryLatitude: z.number().min(-90).max(90).optional(),
+    deliveryLongitude: z.number().min(-180).max(180).optional(),
+  }).superRefine((body, ctx) => {
+    const hasDeliveryLatitude = typeof body.deliveryLatitude === "number";
+    const hasDeliveryLongitude = typeof body.deliveryLongitude === "number";
+
+    if (hasDeliveryLatitude !== hasDeliveryLongitude) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: hasDeliveryLatitude ? ["deliveryLongitude"] : ["deliveryLatitude"],
+        message: "Delivery coordinates must include both latitude and longitude",
+      });
+    }
+
+    if (body.deliveryOption === "DELIVERY" && !hasDeliveryLatitude && !hasDeliveryLongitude) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["deliveryLatitude"],
+        message: "Delivery coordinates are required to estimate a dynamic delivery fee",
+      });
+    }
   }),
   params: z.object({}).optional(),
   query: z.object({}).optional(),
@@ -106,6 +149,7 @@ module.exports = {
   listingFiltersSchema,
   listingParamsSchema,
   checkoutSchema,
+  deliveryFeeEstimateSchema,
   orderParamsSchema,
   riderAcceptOrderSchema,
   riderStatusUpdateSchema,

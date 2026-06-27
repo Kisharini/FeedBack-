@@ -492,7 +492,7 @@ export default function Register() {
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <div className="flex flex-col gap-2">
-                <label className={labelClassName}>Full Name</label>
+                <FieldLabel label="Full Name" required infoText="2 to 100 characters" />
                 <input
                   name="name"
                   onChange={handleInputChange}
@@ -510,7 +510,7 @@ export default function Register() {
                 {fieldErrors.name && <span className={errorClassName}>{fieldErrors.name}</span>}
               </div>
               <div className="flex flex-col gap-2">
-                <label className={labelClassName}>Email Address</label>
+                <FieldLabel label="Email Address" required infoText="Enter a valid email address" />
                 <input
                   name="email"
                   onChange={handleInputChange}
@@ -541,6 +541,10 @@ export default function Register() {
                     onChange={handleInputChange}
                     placeholder="Enter organization name"
                     helperText="2 to 150 characters"
+                    required
+                    minLength={2}
+                    maxLength={150}
+                    error={fieldErrors.ngoOrganizationName}
                   />
                   <InputField
                     label="Registration Number"
@@ -549,10 +553,14 @@ export default function Register() {
                     onChange={handleInputChange}
                     placeholder="SSM / registration number"
                     helperText="3 to 60 characters"
+                    required
+                    minLength={3}
+                    maxLength={60}
+                    error={fieldErrors.ngoRegistrationNumber}
                   />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className={labelClassName}>Contact Phone</label>
+                  <FieldLabel label="Contact Phone" required infoText="8 to 30 characters" />
                   <input
                     name="ngoContactPhone"
                     onChange={handleInputChange}
@@ -562,6 +570,7 @@ export default function Register() {
                     maxLength={30}
                     className={fieldClassName}
                     placeholder="+60..."
+                    required
                   />
                   <span className={helperClassName}>8 to 30 characters</span>
                   {fieldErrors.ngoContactPhone && (
@@ -575,10 +584,14 @@ export default function Register() {
                   onChange={handleInputChange}
                   placeholder="Full address"
                   helperText="10 to 300 characters"
+                  required
+                  minLength={10}
+                  maxLength={300}
+                  error={fieldErrors.ngoAddress}
                 />
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   <div className="flex flex-col gap-2">
-                    <label className={labelClassName}>Org Description</label>
+                    <FieldLabel label="Org Description" required infoText="20 to 1000 characters" />
                     <textarea
                       rows="4"
                       name="ngoDescription"
@@ -588,6 +601,7 @@ export default function Register() {
                       maxLength={1000}
                       className={fieldClassName}
                       placeholder="Mission statement..."
+                      required
                     />
                     <span className={helperClassName}>20 to 1000 characters</span>
                     {fieldErrors.ngoDescription && (
@@ -595,18 +609,25 @@ export default function Register() {
                     )}
                   </div>
                   <div className="flex flex-col gap-2">
-                    <label className={labelClassName}>SSM Document</label>
+                    <FieldLabel label="SSM Document" required infoText="PDF, JPG, PNG, or WEBP" />
                     <input
                       type="file"
                       name="ssmDocument"
                       onChange={handleFileChange}
                       className={fileInputClassName}
+                      accept=".pdf,image/png,image/jpeg,image/webp"
+                      required
                     />
                     <span className={helperClassName}>PDF, JPG, PNG, or WEBP</span>
                     {fieldErrors.ssmDocument && (
                       <span className={errorClassName}>{fieldErrors.ssmDocument}</span>
                     )}
-                    <label className={`${labelClassName} mt-4`}>Supporting Documents</label>
+                    <div className="mt-4">
+                      <FieldLabel
+                        label="Supporting Documents"
+                        infoText="Optional. PDF, JPG, PNG, or WEBP"
+                      />
+                    </div>
                     <input
                       type="file"
                       name="supportingDocuments"
@@ -679,7 +700,10 @@ export default function Register() {
                   error={fieldErrors.vendorPlaceAddress}
                 />
                 <div className="flex flex-col gap-2 md:col-span-2">
-                  <label className={labelClassName}>Business Description</label>
+                  <FieldLabel
+                    label="Business Description"
+                    infoText="Optional. If filled, use 10 to 1000 characters."
+                  />
                   <textarea
                     rows="4"
                     name="vendorDescription"
@@ -691,7 +715,7 @@ export default function Register() {
                   <span className={helperClassName}>Optional. If filled, use 10 to 1000 characters.</span>
                 </div>
                 <div className="flex flex-col gap-2 md:col-span-2">
-                  <label className={labelClassName}>Vendor SSM Document</label>
+                  <FieldLabel label="Vendor SSM Document" required infoText="PDF, JPG, PNG, or WEBP" />
                   <input
                     type="file"
                     name="vendorSsmDocument"
@@ -801,7 +825,10 @@ export default function Register() {
                   />
                 </div>
                 <div className="flex flex-col gap-2 md:col-span-2">
-                  <label className={labelClassName}>Notes</label>
+                  <FieldLabel
+                    label="Notes"
+                    infoText="Optional. If filled, use 10 to 1000 characters."
+                  />
                   <textarea
                     rows="4"
                     name="riderNotes"
@@ -813,7 +840,7 @@ export default function Register() {
                   <span className={helperClassName}>Optional. If filled, use 10 to 1000 characters.</span>
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className={labelClassName}>Driving License Upload</label>
+                  <FieldLabel label="Driving License Upload" required infoText="PDF, JPG, PNG, or WEBP" />
                   <input
                     type="file"
                     name="riderLicenseDocument"
@@ -828,7 +855,7 @@ export default function Register() {
                   )}
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className={labelClassName}>Vehicle Grant Upload</label>
+                  <FieldLabel label="Vehicle Grant Upload" required infoText="PDF, JPG, PNG, or WEBP" />
                   <input
                     type="file"
                     name="riderVehicleGrantDocument"
@@ -855,7 +882,7 @@ export default function Register() {
 
             <div className="grid grid-cols-1 gap-6 border-t border-surface-container-high pt-4 md:grid-cols-2">
               <div className="flex flex-col gap-2">
-                <label className={labelClassName}>Password</label>
+                <FieldLabel label="Password" required infoText="8 to 72 characters" />
                 <div className="relative">
                   <input
                     name="password"
@@ -884,7 +911,7 @@ export default function Register() {
                 {fieldErrors.password && <span className={errorClassName}>{fieldErrors.password}</span>}
               </div>
               <div className="flex flex-col gap-2">
-                <label className={labelClassName}>Confirm Password</label>
+                <FieldLabel label="Confirm Password" required infoText="Must match the password above" />
                 <input
                   name="confirmPassword"
                   onChange={handleInputChange}
@@ -923,10 +950,21 @@ export default function Register() {
   );
 }
 
-function InputField({ label, name, value, onChange, placeholder, helperText, required, minLength, maxLength, error }) {
+function InputField({
+  label,
+  name,
+  value,
+  onChange,
+  placeholder,
+  helperText,
+  required,
+  minLength,
+  maxLength,
+  error,
+}) {
   return (
     <div className="flex flex-col gap-2">
-      <label className={labelClassName}>{label}</label>
+      <FieldLabel label={label} required={required} infoText={helperText} />
       <input
         name={name}
         value={value}
@@ -940,6 +978,17 @@ function InputField({ label, name, value, onChange, placeholder, helperText, req
       />
       {helperText && <span className={helperClassName}>{helperText}</span>}
       {error && <span className={errorClassName}>{error}</span>}
+    </div>
+  );
+}
+
+function FieldLabel({ label, required = false }) {
+  return (
+    <div className="flex items-center gap-2">
+      <label className={`${labelClassName} mb-0`}>
+        {label}
+        {required && <span className="ml-1 text-red-500">*</span>}
+      </label>
     </div>
   );
 }

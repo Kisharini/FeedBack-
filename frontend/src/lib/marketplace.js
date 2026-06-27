@@ -90,6 +90,13 @@ export const checkoutOrder = (body) =>
     return response;
   });
 
+export const estimateDeliveryFee = (body) =>
+  jsonRequest("/marketplace/orders/delivery-fee-estimate", {
+    method: "POST",
+    body,
+    ...withToken(),
+  });
+
 export const fetchOrders = () => runCachedGet("/marketplace/orders", 5000);
 
 export const fetchOrderById = (orderId) =>

@@ -5,13 +5,16 @@ const ApiError = require("../utils/apiError");
 const { notifyClaimCreated } = require("../services/notificationService");
 const { creditCompletedOrderWallets } = require("../services/walletService");
 const { matchFoodListings } = require("../utils/matchingEngine");
+const {
+  DELIVERY_PRICING,
+  calculateDeliveryFeeEstimate,
+} = require("../utils/deliveryPricing");
 
 const ROLE_TO_LISTING_TYPE = {
   INDIVIDUAL: "DISCOUNTED",
   NGO: "DONATION",
 };
 
-const DELIVERY_FEE_AMOUNT = 800;
 const PICKUP_INSTRUCTIONS =
   "Bring your order confirmation, arrive within 30 minutes of readiness, and show the order id to the vendor.";
 
@@ -154,6 +157,19 @@ const mapOrder = (order) => ({
   })),
 });
 
+const mapDeliveryFeeEstimate = (estimate) => ({
+  amount: toMoney(estimate.amount),
+  pricingMode: estimate.pricingMode,
+  breakdown: {
+    ...estimate.breakdown,
+    baseFee: toMoney(estimate.breakdown.baseFeeAmount),
+    distanceFee: toMoney(estimate.breakdown.distanceFeeAmount),
+    peakHourSurcharge: toMoney(estimate.breakdown.peakHourSurchargeAmount),
+    extraPickupSurcharge: toMoney(estimate.breakdown.extraPickupSurchargeAmount),
+    perKilometerRate: toMoney(DELIVERY_PRICING.perKilometerAmount),
+  },
+});
+
 const buildListingWhereClause = (user, query = {}) => {
   const allowedType = buildListingAccess(user.role);
   const search = query.search?.trim();
@@ -285,6 +301,66 @@ const getListingById = asyncHandler(async (req, res) => {
   });
 });
 
+const estimateDeliveryFee = asyncHandler(async (req, res) => {
+  const { items, deliveryOption, deliveryLatitude, deliveryLongitude } = req.validated.body;
+  const listingIds = [...new Set(items.map((item) => item.listingId))];
+
+  if (listingIds.length !== items.length) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Each listing can only appear once in the cart");
+  }
+
+  const listings = await prisma.listing.findMany({
+    where: {
+      id: {
+        in: listingIds,
+      },
+    },
+    select: {
+      id: true,
+      type: true,
+      pickupLatitude: true,
+      pickupLongitude: true,
+    },
+  });
+
+  if (listings.length !== listingIds.length) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "One or more listings could not be found");
+  }
+
+  const allowedType = buildListingAccess(req.user.role);
+  const invalidListing = listings.find((listing) => listing.type !== allowedType);
+
+  if (invalidListing) {
+    throw new ApiError(
+      StatusCodes.FORBIDDEN,
+      "Your account cannot order this type of listing"
+    );
+  }
+
+  const estimate = calculateDeliveryFeeEstimate({
+    deliveryOption,
+    pickupPoints: listings.map((listing) => ({
+      latitude: listing.pickupLatitude,
+      longitude: listing.pickupLongitude,
+    })),
+    deliveryCoordinates:
+      deliveryOption === "DELIVERY"
+        ? {
+            latitude: deliveryLatitude,
+            longitude: deliveryLongitude,
+          }
+        : null,
+  });
+
+  return res.status(StatusCodes.OK).json({
+    success: true,
+    message: "Delivery fee estimated successfully",
+    data: {
+      deliveryFee: mapDeliveryFeeEstimate(estimate),
+    },
+  });
+});
+
 const createOrder = asyncHandler(async (req, res) => {
   const allowedType = buildListingAccess(req.user.role);
   const {
@@ -356,7 +432,21 @@ const createOrder = asyncHandler(async (req, res) => {
       return sum + unitPrice * quantity;
     }, 0);
 
-    const deliveryFeeAmount = deliveryOption === "DELIVERY" ? DELIVERY_FEE_AMOUNT : 0;
+    const deliveryFeeAmount = calculateDeliveryFeeEstimate({
+      deliveryOption,
+      pickupPoints: listings.map((listing) => ({
+        latitude: listing.pickupLatitude,
+        longitude: listing.pickupLongitude,
+      })),
+      deliveryCoordinates:
+        deliveryOption === "DELIVERY"
+          ? {
+              latitude: deliveryLatitude,
+              longitude: deliveryLongitude,
+            }
+          : null,
+      now,
+    }).amount;
     const totalAmount = subtotalAmount + deliveryFeeAmount;
     const status = deliveryOption === "SELF_PICKUP" ? "READY_FOR_PICKUP" : "FINDING_RIDER";
     const trackingMessage =
@@ -672,6 +762,7 @@ const advanceMockOrderStatus = asyncHandler(async (req, res) => {
 module.exports = {
   listListings,
   getListingById,
+  estimateDeliveryFee,
   createOrder,
   listOrders,
   getOrderById,

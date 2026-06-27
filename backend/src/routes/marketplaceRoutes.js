@@ -5,6 +5,7 @@ const validateRequest = require("../middleware/validateRequest");
 const {
   listListings,
   getListingById,
+  estimateDeliveryFee,
   createOrder,
   listOrders,
   getOrderById,
@@ -15,6 +16,7 @@ const {
   listingFiltersSchema,
   listingParamsSchema,
   checkoutSchema,
+  deliveryFeeEstimateSchema,
   orderParamsSchema,
   recipientRoles,
 } = require("../validators/marketplaceValidator");
@@ -25,6 +27,11 @@ router.use(authMiddleware, allowRoles(...recipientRoles));
 
 router.get("/listings", validateRequest(listingFiltersSchema), listListings);
 router.get("/listings/:listingId", validateRequest(listingParamsSchema), getListingById);
+router.post(
+  "/orders/delivery-fee-estimate",
+  validateRequest(deliveryFeeEstimateSchema),
+  estimateDeliveryFee
+);
 router.post("/orders/checkout", validateRequest(checkoutSchema), createOrder);
 router.get("/orders", listOrders);
 router.get("/orders/:orderId", validateRequest(orderParamsSchema), getOrderById);

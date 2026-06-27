@@ -8,7 +8,7 @@ import {
   updateCartItemQuantity,
 } from "../lib/cart";
 import { getCurrentUserFromStorage } from "../lib/auth";
-import { checkoutOrder } from "../lib/marketplace";
+import { checkoutOrder, estimateDeliveryFee } from "../lib/marketplace";
 import { navigateTo } from "../lib/navigation";
 
 const paymentMethods = [
@@ -19,8 +19,9 @@ const paymentMethods = [
   { id: "SHOPEEPAY", label: "ShopeePay", icon: "local_mall" },
 ];
 
-const DELIVERY_FEE = 800;
 const formatMoney = (amount) => `RM ${(amount / 100).toFixed(2)}`;
+const hasCoordinates = (coordinates) =>
+  Number.isFinite(coordinates?.latitude) && Number.isFinite(coordinates?.longitude);
 
 export default function CheckoutPage() {
   const [currentUser] = useState(() => getCurrentUserFromStorage());
@@ -34,6 +35,13 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
+  const [deliveryFeeState, setDeliveryFeeState] = useState({
+    loading: false,
+    amount: 0,
+    pricingMode: "pickup",
+    breakdown: null,
+    error: "",
+  });
 
   useEffect(() => {
     if (!currentUser) {
@@ -58,7 +66,83 @@ export default function CheckoutPage() {
     [items]
   );
 
-  const deliveryFeeAmount = deliveryOption === "DELIVERY" ? DELIVERY_FEE : 0;
+  useEffect(() => {
+    if (!items.length) {
+      setDeliveryFeeState({
+        loading: false,
+        amount: 0,
+        pricingMode: "pickup",
+        breakdown: null,
+        error: "",
+      });
+      return;
+    }
+
+    if (deliveryOption !== "DELIVERY") {
+      setDeliveryFeeState({
+        loading: false,
+        amount: 0,
+        pricingMode: "pickup",
+        breakdown: null,
+        error: "",
+      });
+      return;
+    }
+
+    if (!hasCoordinates(deliveryCoordinates)) {
+      setDeliveryFeeState({
+        loading: false,
+        amount: 0,
+        pricingMode: "pending-location",
+        breakdown: null,
+        error: "",
+      });
+      return;
+    }
+
+    let cancelled = false;
+    setDeliveryFeeState((current) => ({
+      ...current,
+      loading: true,
+      error: "",
+    }));
+
+    estimateDeliveryFee({
+      items: items.map((item) => ({
+        listingId: item.listingId,
+        quantity: item.quantity,
+      })),
+      deliveryOption,
+      deliveryLatitude: deliveryCoordinates.latitude,
+      deliveryLongitude: deliveryCoordinates.longitude,
+    })
+      .then((response) => {
+        if (cancelled) return;
+        setDeliveryFeeState({
+          loading: false,
+          amount: response.data.deliveryFee.amount.amount,
+          pricingMode: response.data.deliveryFee.pricingMode,
+          breakdown: response.data.deliveryFee.breakdown,
+          error: "",
+        });
+      })
+      .catch((requestError) => {
+        if (cancelled) return;
+        setDeliveryFeeState({
+          loading: false,
+          amount: 0,
+          pricingMode: "pending-location",
+          breakdown: null,
+          error: requestError.message,
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [deliveryCoordinates, deliveryOption, items]);
+
+  const deliveryFeeAmount = deliveryOption === "DELIVERY" ? deliveryFeeState.amount : 0;
   const totalAmount = subtotalAmount + deliveryFeeAmount;
 
   const handleQuantityChange = (listingId, nextQuantity) => {
@@ -299,7 +383,7 @@ export default function CheckoutPage() {
                     }}
                     onLocationSelect={setDeliveryCoordinates}
                     placeholder="Search and select the rider drop-off address"
-                    hint="Include house or unit number, street, and area. Selecting a suggestion stores precise coordinates for rider routing."
+                    hint="Include house or unit number, street, and area. Select one suggestion so we can calculate distance-based delivery pricing."
                     error={fieldErrors.deliveryAddress?.[0] || ""}
                   />
                 </div>
@@ -339,17 +423,120 @@ export default function CheckoutPage() {
                 <p className="text-sm font-semibold text-[#8c5d17]">Order Summary</p>
                 <div className="mt-4 space-y-3 text-sm text-[#6d532c]">
                   <SummaryRow label="Items Subtotal" value={formatMoney(subtotalAmount)} />
-                  <SummaryRow label="Delivery Fee" value={formatMoney(deliveryFeeAmount)} />
+                  <SummaryRow
+                    label="Delivery Fee"
+                    value={
+                      deliveryOption !== "DELIVERY"
+                        ? "RM 0.00"
+                        : deliveryFeeState.loading
+                          ? "Calculating..."
+                          : formatMoney(deliveryFeeAmount)
+                    }
+                  />
                   <SummaryRow
                     label="Total"
                     value={formatMoney(totalAmount)}
                     emphasized
                   />
                 </div>
+                {deliveryOption === "DELIVERY" && (
+                  <div className="mt-4 rounded-[1.2rem] border border-[#f3dfbe] bg-[linear-gradient(135deg,rgba(255,255,255,0.92)_0%,rgba(255,249,239,0.96)_100%)] px-4 py-4 text-[#7a633c] shadow-[0_10px_24px_rgba(181,133,54,0.08)]">
+                    {deliveryFeeState.pricingMode === "pending-location" && (
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#fff2da] text-[#b7791f]">
+                          <span className="material-symbols-outlined text-[18px]">location_on</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-[#80551b]">Delivery fee estimate</p>
+                          <p className="mt-1 text-xs leading-6 text-[#8a6a38]">
+                            Select a delivery address suggestion to calculate the rider fee.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    {deliveryFeeState.pricingMode === "dynamic" && deliveryFeeState.breakdown && (
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-[#80551b]">Delivery fee breakdown</p>
+                            <p className="mt-1 text-xs text-[#8a6a38]">
+                              Calculated from route distance and delivery timing.
+                            </p>
+                          </div>
+                          <div className="rounded-full bg-[#fff2da] px-3 py-1 text-xs font-semibold text-[#9a6518]">
+                            {deliveryFeeState.breakdown.chargeableDistanceKm} km
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 rounded-xl bg-white/75 px-3 py-3 text-xs">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-[#8a6a38]">Base fare</span>
+                            <span className="font-semibold text-[#6f4813]">
+                              {deliveryFeeState.breakdown.baseFee.formatted}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-[#8a6a38]">
+                              Distance fee ({deliveryFeeState.breakdown.chargeableDistanceKm} km x{" "}
+                              {deliveryFeeState.breakdown.perKilometerRate.formatted}/km)
+                            </span>
+                            <span className="font-semibold text-[#6f4813]">
+                              {deliveryFeeState.breakdown.distanceFee.formatted}
+                            </span>
+                          </div>
+                          {deliveryFeeState.breakdown.peakHourApplied && (
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-[#8a6a38]">Peak-hour surcharge</span>
+                              <span className="font-semibold text-[#6f4813]">
+                                {deliveryFeeState.breakdown.peakHourSurcharge.formatted}
+                              </span>
+                            </div>
+                          )}
+                          {deliveryFeeState.breakdown.extraPickupStops > 0 && (
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-[#8a6a38]">
+                                Extra pickup stops ({deliveryFeeState.breakdown.extraPickupStops})
+                              </span>
+                              <span className="font-semibold text-[#6f4813]">
+                                {deliveryFeeState.breakdown.extraPickupSurcharge.formatted}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {deliveryFeeState.pricingMode === "fallback" && (
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#fff2da] text-[#b7791f]">
+                          <span className="material-symbols-outlined text-[18px]">info</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-[#80551b]">Fallback delivery fee</p>
+                          <p className="mt-1 text-xs leading-6 text-[#8a6a38]">
+                            Live distance pricing is unavailable for one or more pickup locations, so
+                            the system is using the fallback fee instead.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    {deliveryFeeState.error && (
+                      <p className="text-xs leading-6 text-red-700">{deliveryFeeState.error}</p>
+                    )}
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={handleCheckout}
-                  disabled={submitting || !items.length}
+                  disabled={
+                    submitting ||
+                    !items.length ||
+                    (deliveryOption === "DELIVERY" &&
+                      (
+                        deliveryFeeState.loading ||
+                        deliveryFeeState.pricingMode === "pending-location" ||
+                        Boolean(deliveryFeeState.error)
+                      ))
+                  }
                   className="mt-5 w-full rounded-xl bg-primary px-4 py-3 font-semibold text-white transition hover:bg-[#f59b27] disabled:cursor-not-allowed disabled:opacity-60 inline-flex items-center justify-center gap-2"
                 >
                   <span className="material-symbols-outlined text-sm">payment</span>
