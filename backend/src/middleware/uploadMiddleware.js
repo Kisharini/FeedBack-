@@ -41,7 +41,7 @@ const uploadNgoDocuments = multer({
   storage: multer.memoryStorage(),
   fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024
+    fileSize: 5 * 1024 * 1024 // 5MB limit
   }
 }).fields([
   { name: "ssmDocument", maxCount: 1 },
@@ -55,7 +55,7 @@ const uploadListingImage = multer({
   storage: multer.memoryStorage(),
   fileFilter: imageFileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024
+    fileSize: 5 * 1024 * 1024 // 5MB limit
   }
 }).single("listingImage");
 

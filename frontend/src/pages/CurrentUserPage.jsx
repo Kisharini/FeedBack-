@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
-import { getToken } from "../lib/auth";
+import { clearAuth, getToken } from "../lib/auth";
 import { apiRequest } from "../lib/api";
 import { navigateTo } from "../lib/navigation";
 
@@ -38,6 +38,7 @@ export default function CurrentUserPage() {
       })
       .catch((error) => {
         if (isMounted) {
+          clearAuth();
           setState((prevState) => ({
             ...prevState,
             loading: false,
@@ -376,6 +377,19 @@ export default function CurrentUserPage() {
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+function InfoCard({ label, value }) {
+  return (
+    <div className="rounded-2xl bg-surface p-5 border border-surface-container-high">
+      <p className="font-label-md text-label-md uppercase text-on-surface-variant mb-2">
+        {label}
+      </p>
+      <p className="font-body-md text-body-lg text-on-surface break-words">
+        {value || "-"}
+      </p>
     </div>
   );
 }

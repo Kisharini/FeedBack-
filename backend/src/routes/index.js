@@ -22,6 +22,7 @@ router.get("/", (req, res) => {
       "/api/admin/alerts/:alertId/action",
       "/api/auth/pending-approvals",
       "/api/auth/users/:userId/approval",
+      "/api/auth/users/:userId/approval",
       "/api/marketplace/listings",
       "/api/marketplace/orders",
       "/api/notifications",

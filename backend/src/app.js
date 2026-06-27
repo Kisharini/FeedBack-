@@ -6,7 +6,6 @@ const rateLimit = require("express-rate-limit");
 const routes = require("./routes");
 const { notFoundMiddleware, errorMiddleware } = require("./middleware/errorMiddleware");
 const listingRoutes = require("./routes/listingRoute")
-
 const app = express();
 
 app.use(helmet());
@@ -26,6 +25,7 @@ app.use(
 );
 
 app.use("/api/listings", listingRoutes);
+
 app.use("/api", routes);
 
 app.use(notFoundMiddleware);

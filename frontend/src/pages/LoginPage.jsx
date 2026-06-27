@@ -56,8 +56,8 @@ export default function LoginPage() {
   };
 
   const finishAuth = (authData, successMessage) => {
-    console.log("Auth Data Received from Server:", authData);
     saveAuth(authData);
+    console.log("Auth Data Received from Server:", authData);
     console.log("Token in LocalStorage right after save:", localStorage.getItem("token"));
     setMessage(successMessage);
 
@@ -104,7 +104,6 @@ export default function LoginPage() {
     }
   };
 
-  // Replaced experimental useEffectEvent with a stable standard handler function
   const handleGoogleCredential = async (credential) => {
     if (!credential) {
       setError("Google sign-in was cancelled. Please try again.");
@@ -129,7 +128,6 @@ export default function LoginPage() {
     }
   };
 
-  // Capture the credential handler dynamic reference safely for the initialization lifecycle
   const handleGoogleCredentialRef = useRef(handleGoogleCredential);
   useEffect(() => {
     handleGoogleCredentialRef.current = handleGoogleCredential;
@@ -148,16 +146,17 @@ export default function LoginPage() {
       }
 
       googleButtonRef.current.innerHTML = "";
-      
-      if (!window.__google_initialized){
-      window.google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: ({ credential }) => {
-          handleGoogleCredentialRef.current(credential);
-        },
-      });
-      window.__google_initialized = true
-    }
+
+      if (!window.__google_initialized) {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: ({ credential }) => {
+            handleGoogleCredentialRef.current(credential);
+          },
+        });
+        window.__google_initialized = true;
+      }
+
       window.google.accounts.id.renderButton(googleButtonRef.current, {
         theme: "outline",
         size: "large",
@@ -245,6 +244,7 @@ export default function LoginPage() {
       </header>
 
       <main className="mx-auto flex max-w-7xl flex-col gap-12 px-6 py-12 lg:h-[calc(100vh-89px)] lg:flex-row lg:items-stretch lg:gap-8 lg:overflow-hidden lg:py-8">
+        {/* Left Side: Hero Information */}
         <div className="hidden w-full lg:sticky lg:top-0 lg:flex lg:h-full lg:w-5/12 lg:flex-col">
           <div
             className="relative flex min-h-[640px] flex-col overflow-hidden rounded-[2.5rem] p-10 shadow-level-3 lg:h-full lg:min-h-0 lg:p-8"
@@ -351,6 +351,7 @@ export default function LoginPage() {
           </div>
         </div>
 
+        {/* Right Side: Cleaned Single Form Panel */}
         <div className={`w-full lg:h-full lg:min-h-0 lg:w-7/12 lg:overflow-y-auto lg:pr-2 ${panelClassName}`}>
           <div className="p-8 md:p-12">
             <div className="mb-10 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -456,7 +457,6 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* CLEANED UP ACTIONS BUTTON CLASSES: Removed duplicate color rules */}
               <button
                 className="w-full flex items-center justify-center gap-xs rounded-xl bg-primary-container px-md py-sm font-label-md text-label-md text-on-primary-container border-2 border-on-primary-container/20 shadow-sm transition-all duration-300 ease-out-back hover:bg-tertiary-fixed-dim hover:border-transparent hover:-translate-y-[1px] hover:shadow-md active:translate-y-[2px]"
                 type="submit"

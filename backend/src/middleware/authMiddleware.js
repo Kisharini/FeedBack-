@@ -11,35 +11,26 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
 
   // Check Authorization header
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    throw new ApiError(
-      StatusCodes.UNAUTHORIZED,
-      "Authorization token is required"
-    );
+    throw new ApiError(StatusCodes.UNAUTHORIZED, "Authorization token is required");
   }
 
   // Extract token
   const token = authHeader.split(" ")[1];
-
   let decoded;
 
   try {
     decoded = verifyToken(token);
-
     console.log("Decoded JWT:", decoded);
   } catch (error) {
-    return res.status(StatusCodes.UNAUTHORIZED).json({
-      error: "Invalid or expired token",
-    });
+    throw new ApiError(StatusCodes.UNAUTHORIZED, "Invalid or expired token");
   }
 
-  const userId = decoded.sub;
-
+  const userId = decoded?.sub;
   if (!userId) {
-    return res.status(StatusCodes.UNAUTHORIZED).json({
-      error: "Invalid token payload",
-    });
+    throw new ApiError(StatusCodes.UNAUTHORIZED, "Invalid token payload");
   }
 
+  // Fetch the full profile from database
   const user = await prisma.user.findUnique({
     where: {
       id: userId,
@@ -55,7 +46,9 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
       approvedAt: true,
       createdAt: true,
       updatedAt: true,
+      walletBalance: true, // Retained wallet balance support cleanly
 
+      // NGO Fields
       ngoOrganizationName: true,
       ngoRegistrationNumber: true,
       ngoContactPhone: true,
@@ -66,6 +59,7 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
       ngoSupportingDocUrls: true,
       ngoSupportingDocPublicIds: true,
 
+      // Vendor Fields
       vendorBusinessName: true,
       vendorRegistrationNumber: true,
       vendorPlaceAddress: true,
@@ -74,6 +68,7 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
       vendorSsmDocumentUrl: true,
       vendorSsmDocumentPublicId: true,
 
+      // Rider Fields
       riderLicenseNumber: true,
       riderPhoneNumber: true,
       riderVehicleType: true,
@@ -86,22 +81,17 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
       riderLicenseDocumentPublicId: true,
       riderVehicleGrantUrl: true,
       riderVehicleGrantPublicId: true,
-      walletBalance: true,
     },
   });
 
   if (!user) {
-    return res.status(StatusCodes.UNAUTHORIZED).json({
-      error: "User associated with token no longer exists",
-    });
+    throw new ApiError(StatusCodes.UNAUTHORIZED, "User associated with token no longer exists");
   }
 
   if (user.accountStatus === "BANNED") {
     throw new ApiError(StatusCodes.FORBIDDEN, BANNED_ACCOUNT_MESSAGE);
   }
-
   req.user = user;
-
   next();
 });
 

@@ -1,4 +1,5 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 const AUTH_STORAGE_KEY = "feedback_auth";
 
 const buildHeaders = (token, extraHeaders = {}) => {
@@ -30,7 +31,7 @@ export const apiRequest = async (path, options = {}) => {
   let { token, headers, body, ...rest } = options;
 
   if (!token) {
-    const rawAuth = localStorage.getItem("feedback_auth");
+    const rawAuth = localStorage.getItem(AUTH_STORAGE_KEY);
 
     if (rawAuth) {
       try {
@@ -61,12 +62,13 @@ export const apiRequest = async (path, options = {}) => {
 export const jsonRequest = (path, options = {}) => {
   const { token, body, headers, ...rest } = options;
   
-   return apiRequest(path, {
+  return apiRequest(path, {
     ...rest,
     token,
     headers: {
+      ...headers,
       "Content-Type": "application/json",
     },
-    body: body? JSON.stringify(body) : undefined,
-   });
+    body: body ? JSON.stringify(body) : undefined,
+  });
 };

@@ -17,8 +17,6 @@ import TermsOfServicePage from "./pages/TermsOfServicePage";
 import VendorListingDashboard from "./pages/VendorListingDashboard";
 import VendorMyListingsPage from "./pages/VendorMyListingsPage";
 import VendorOrderHistoryPage from "./pages/VendorOrderHistoryPage";
-
-// IMPORTED: Match the file name exactly (RiderDeliveryHistory without 'Page')
 import RiderDashboardPage from "./pages/RiderDashboardPage";
 import RiderDeliveryHistory from "./pages/RiderDeliveryHistory";
 import RiderWalletPage from "./pages/RiderWalletPage";
@@ -79,15 +77,13 @@ export default function App() {
   }, []);
 
   if (staticRoutes[pathname]) {
-    const CurrentPage = staticRoutes[pathname];
-    return <CurrentPage />;
+    const StaticComponent = staticRoutes[pathname];
+    return <StaticComponent />;
   }
 
   const matchedDynamicRoute = dynamicRoutes.find((route) => route.match.test(pathname));
-
   if (matchedDynamicRoute) {
     return matchedDynamicRoute.render(pathname);
   }
-
   return <LandingPage />;
 }

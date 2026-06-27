@@ -74,6 +74,10 @@ enum NotificationType {
   STATUS_UPDATE
 }
 
+// ==========================================
+// MODELS
+// ==========================================
+
 model User {
   id                           String              @id @default(cuid())
   name                         String
@@ -108,19 +112,23 @@ model User {
   riderNotes                   String?
   riderLicenseDocumentUrl      String?
   riderLicenseDocumentPublicId String?
-  riderVehicleGrantUrl         String?
-  riderVehicleGrantPublicId    String?
-  approvalNotes                String?
-  walletBalance                Int                 @default(0)
-  approvedAt                   DateTime?
-  createdAt                    DateTime            @default(now())
-  updatedAt                    DateTime            @updatedAt
-  listings                     Listing[]           @relation("VendorListings")
-  claimedListings              Listing[]           @relation("ClaimedListings")
-  orders                       Order[]             @relation("CustomerOrders")
-  riderOrders                  Order[]             @relation("AssignedRiderOrders")
-  walletTransactions           WalletTransaction[]
-  notifications                Notification[]
+  riderVehicleGrantUrl      String?
+  riderVehicleGrantPublicId String?
+  
+  // System Fields
+  approvalNotes             String?
+  walletBalance             Int                 @default(0)
+  approvedAt                DateTime?
+  createdAt                 DateTime            @default(now())
+  updatedAt                 DateTime            @updatedAt
+
+  // Relationships
+  listings                  Listing[]           @relation("VendorListings")
+  claimedListings           Listing[]           @relation("ClaimedListings")
+  orders                    Order[]             @relation("CustomerOrders")
+  riderOrders               Order[]             @relation("AssignedRiderOrders")
+  walletTransactions        WalletTransaction[]
+  notifications             Notification[]
 
   @@map("users")
 }
@@ -143,6 +151,8 @@ model Listing {
   claimedAt       DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+
+  // Relationships
   vendor          User          @relation("VendorListings", fields: [vendorId], references: [id])
   claimedBy       User?         @relation("ClaimedListings", fields: [claimedById], references: [id])
   orderItems      OrderItem[]
@@ -182,6 +192,8 @@ model Order {
   completedAt        DateTime?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
+
+  // Relationships
   customer           User                @relation("CustomerOrders", fields: [customerId], references: [id])
   rider              User?               @relation("AssignedRiderOrders", fields: [riderId], references: [id])
   items              OrderItem[]
@@ -204,6 +216,8 @@ model OrderItem {
   lineTotal     Int
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+
+  // Relationships
   order         Order       @relation(fields: [orderId], references: [id])
   listing       Listing     @relation(fields: [listingId], references: [id])
 
@@ -221,6 +235,8 @@ model WalletTransaction {
   description String
   createdAt   DateTime              @default(now())
   updatedAt   DateTime              @updatedAt
+
+  // Relationships
   user        User                  @relation(fields: [userId], references: [id])
   order       Order?                @relation(fields: [orderId], references: [id])
 
@@ -240,6 +256,8 @@ model Notification {
   isRead    Boolean          @default(false)
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
+
+  // Relationships
   user      User             @relation(fields: [userId], references: [id])
 
   @@index([userId])
